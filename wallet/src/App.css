@@ -1429,6 +1429,531 @@ action Components Styles */
   color: #333;
 }
 
+/* Mining Tab Styles */
+.mining-tab {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.no-wallet-message {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.no-wallet-message h3 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.no-wallet-message p {
+  color: #666;
+}
+
+.mining-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.mining-header h2 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.mining-header p {
+  color: #666;
+  font-size: 16px;
+}
+
+.mining-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.mining-left, .mining-right {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* Notifications */
+.notifications {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.notification {
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.notification.success {
+  border-left: 4px solid #28a745;
+}
+
+.notification.error {
+  border-left: 4px solid #dc3545;
+}
+
+.notification.warning {
+  border-left: 4px solid #ffc107;
+}
+
+.notification.info {
+  border-left: 4px solid #17a2b8;
+}
+
+.notification-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.notification-message {
+  font-size: 14px;
+  color: #333;
+}
+
+.notification-time {
+  font-size: 12px;
+  color: #666;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-close:hover {
+  color: #333;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* System Requirements */
+.system-requirements {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.system-requirements h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.requirements-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.requirement-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.requirement-item .label {
+  font-weight: 500;
+  color: #333;
+  min-width: 80px;
+}
+
+.requirement-item .value {
+  flex: 1;
+  color: #666;
+}
+
+.requirement-item .status {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.requirement-item .status.compatible {
+  color: #28a745;
+}
+
+.requirement-item .status.incompatible {
+  color: #dc3545;
+}
+
+.loading-requirements {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #666;
+}
+
+/* Model Selector */
+.model-selector {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.model-selector h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.model-dropdown select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.model-dropdown select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.model-dropdown select:disabled {
+  background: #f8f9fa;
+  cursor: not-allowed;
+}
+
+.selected-model-info {
+  margin-top: 20px;
+}
+
+.model-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 2px solid #e9ecef;
+}
+
+.model-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.model-header h4 {
+  margin: 0;
+  color: #333;
+}
+
+.model-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.model-status.installed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.model-status.not-installed {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.model-description {
+  color: #666;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.model-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.model-details .detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.model-details .detail span:first-child {
+  color: #666;
+}
+
+.model-details .detail span:last-child {
+  color: #333;
+  font-weight: 500;
+}
+
+.model-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.uninstall-button {
+  padding: 8px 16px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.3s;
+}
+
+.uninstall-button:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.uninstall-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Mining Controls */
+.mining-controls {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.mining-controls h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.download-progress {
+  margin-bottom: 20px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease;
+}
+
+.control-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.start-mining-button, .stop-mining-button, .mining-button {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.start-mining-button {
+  background: #28a745;
+  color: white;
+}
+
+.start-mining-button:hover:not(:disabled) {
+  background: #218838;
+}
+
+.start-mining-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.stop-mining-button {
+  background: #dc3545;
+  color: white;
+}
+
+.stop-mining-button:hover {
+  background: #c82333;
+}
+
+.mining-button.loading {
+  background: #667eea;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* Node Status */
+.node-status {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.node-status h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.status-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 6px;
+}
+
+.status-info {
+  flex: 1;
+}
+
+.status-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.status-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.last-activity {
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+/* Mining Info */
+.mining-info {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.mining-info h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.info-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.info-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666;
+}
+
+.info-text strong {
+  color: #333;
+  font-weight: 600;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .receive-content {
@@ -1463,5 +1988,20 @@ action Components Styles */
   .transaction-modal {
     width: 95%;
     margin: 20px;
+  }
+  
+  .mining-content {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .notifications {
+    left: 20px;
+    right: 20px;
+    max-width: none;
   }
 }

@@ -4,6 +4,7 @@ import WalletManager from './WalletManager';
 import SendTransaction from './SendTransaction';
 import ReceiveTransaction from './ReceiveTransaction';
 import TransactionHistory from './TransactionHistory';
+import MiningTab from './MiningTab';
 
 const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -59,7 +60,7 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
       case 'history':
         return <TransactionHistory wallet={wallet} />;
       case 'mining':
-        return <div className="content-placeholder">Minería con IA - Próximamente</div>;
+        return <MiningTab wallet={wallet} />;
       case 'settings':
         return <div className="content-placeholder">Configuración - Próximamente</div>;
       default:
