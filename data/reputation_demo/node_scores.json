@@ -1,0 +1,206 @@
+{
+  "ai_node_gemma_001": {
+    "node_id": "ai_node_gemma_001",
+    "current_score": 110.0,
+    "total_validations": 10,
+    "successful_validations": 10,
+    "failed_validations": 0,
+    "penalties_applied": 0,
+    "last_activity": "2025-12-04T23:44:25.550258",
+    "reputation_history": [
+      {
+        "timestamp": "2025-12-04T23:44:25.542207",
+        "old_score": 100.0,
+        "new_score": 101.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.543211",
+        "old_score": 101.0,
+        "new_score": 102.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.544215",
+        "old_score": 102.0,
+        "new_score": 103.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.545220",
+        "old_score": 103.0,
+        "new_score": 104.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.546242",
+        "old_score": 104.0,
+        "new_score": 105.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.547246",
+        "old_score": 105.0,
+        "new_score": 106.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.548250",
+        "old_score": 106.0,
+        "new_score": 107.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.549254",
+        "old_score": 107.0,
+        "new_score": 108.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.550258",
+        "old_score": 108.0,
+        "new_score": 109.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.551262",
+        "old_score": 109.0,
+        "new_score": 110.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      }
+    ],
+    "participation_rate": 0.95
+  },
+  "ai_node_mistral_002": {
+    "node_id": "ai_node_mistral_002",
+    "current_score": 103.0,
+    "total_validations": 8,
+    "successful_validations": 7,
+    "failed_validations": 1,
+    "penalties_applied": 2,
+    "last_activity": "2025-12-04T23:44:25.561398",
+    "reputation_history": [
+      {
+        "timestamp": "2025-12-04T23:44:25.552265",
+        "old_score": 100.0,
+        "new_score": 101.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.553269",
+        "old_score": 101.0,
+        "new_score": 102.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.555277",
+        "old_score": 102.0,
+        "new_score": 103.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.556281",
+        "old_score": 103.0,
+        "new_score": 104.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.557358",
+        "old_score": 104.0,
+        "new_score": 105.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.559371",
+        "old_score": 105.0,
+        "new_score": 106.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.560375",
+        "old_score": 106.0,
+        "new_score": 107.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.561398",
+        "old_score": 107.0,
+        "new_score": 105.0,
+        "change": -2.0,
+        "reason": "penalty_light"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.563406",
+        "old_score": 105.0,
+        "new_score": 103.0,
+        "change": -2.0,
+        "reason": "penalty_light"
+      }
+    ],
+    "participation_rate": 0.8
+  },
+  "ai_node_qwen_003": {
+    "node_id": "ai_node_qwen_003",
+    "current_score": 76.0,
+    "total_validations": 4,
+    "successful_validations": 3,
+    "failed_validations": 1,
+    "penalties_applied": 3,
+    "last_activity": "2025-12-04T23:44:25.572542",
+    "reputation_history": [
+      {
+        "timestamp": "2025-12-04T23:44:25.564410",
+        "old_score": 100.0,
+        "new_score": 101.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.566422",
+        "old_score": 101.0,
+        "new_score": 102.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.567426",
+        "old_score": 102.0,
+        "new_score": 103.0,
+        "change": 1.0,
+        "reason": "successful_validation"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.568430",
+        "old_score": 103.0,
+        "new_score": 83.0,
+        "change": -20.0,
+        "reason": "penalty_severe"
+      },
+      {
+        "timestamp": "2025-12-04T23:44:25.570438",
+        "old_score": 83.0,
+        "new_score": 78.0,
+        "change": -5.0,
+        "reason": "penalty_moderate"
+      }
+    ],
+    "participation_rate": 0.05
+  }
+}
