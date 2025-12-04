@@ -1,9 +1,99 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { WalletService } from '../services/WalletService';
+import { NetworkService } from '../services/NetworkService';
+import { TransactionService } from '../services/TransactionService';
 
 const WalletOverview = ({ wallet }) => {
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    // TODO: Add toast notification
+  const [balance, setBalance] = useState({
+    confirmed: '0.00',
+    pending: '0.00',
+    total: '0.00'
+  });
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [networkStatus, setNetworkStatus] = useState({
+    connected: false,
+    syncProgress: 0,
+    blockHeight: 0,
+    tps: 0,
+    connectedPeers: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (wallet) {
+      loadWalletData();
+      
+      // Refresh data every 30 seconds
+      const interval = setInterval(loadWalletData, 30000);
+      
+      // Listen to network events
+      NetworkService.on('connected', handleNetworkConnected);
+      NetworkService.on('disconnected', handleNetworkDisconnected);
+      NetworkService.on('statsUpdated', handleStatsUpdated);
+      
+      return () => {
+        clearInterval(interval);
+        NetworkService.off('connected', handleNetworkConnected);
+        NetworkService.off('disconnected', handleNetworkDisconnected);
+        NetworkService.off('statsUpdated', handleStatsUpdated);
+      };
+    }
+  }, [wallet]);
+
+  const loadWalletData = async () => {
+    if (!wallet) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Load balance
+      const balanceResult = await WalletService.getWalletBalance(wallet.id);
+      if (balanceResult.success) {
+        setBalance({
+          confirmed: balanceResult.balance || '0.00',
+          pending: balanceResult.pending || '0.00',
+          total: (parseFloat(balanceResult.balance || '0') + parseFloat(balanceResult.pending || '0')).toString()
+        });
+      }
+
+      // Load recent transactions
+      const historyResult = await WalletService.getTransactionHistory(wallet.id, 5, 0);
+      if (historyResult.success) {
+        setRecentTransactions(historyResult.transactions || []);
+      }
+
+      // Get network status
+      const status = NetworkService.getConnectionStatus();
+      setNetworkStatus(status);
+      
+    } catch (error) {
+      setError('Error al cargar datos de la cartera');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNetworkConnected = (stats) => {
+    setNetworkStatus(prev => ({ ...prev, connected: true, ...stats }));
+  };
+
+  const handleNetworkDisconnected = () => {
+    setNetworkStatus(prev => ({ ...prev, connected: false }));
+  };
+
+  const handleStatsUpdated = (stats) => {
+    setNetworkStatus(prev => ({ ...prev, ...stats }));
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // TODO: Add toast notification
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+    }
   };
 
   const formatAddress = (address) => {
@@ -11,8 +101,30 @@ const WalletOverview = ({ wallet }) => {
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
+  const formatAmount = (amount) => {
+    return TransactionService.formatAmount(amount);
+  };
+
+  const getTransactionType = (tx) => {
+    return tx.to_address === wallet.address ? 'received' : 'sent';
+  };
+
+  const getTransactionIcon = (tx) => {
+    return getTransactionType(tx) === 'received' ? '📥' : '📤';
+  };
+
   return (
     <div className="wallet-overview">
+      {error && (
+        <div className="error-banner">
+          <span className="error-icon">⚠️</span>
+          {error}
+          <button onClick={loadWalletData} className="retry-button">
+            Reintentar
+          </button>
+        </div>
+      )}
+
       {/* Main Wallet Card */}
       <div className="wallet-card">
         <div className="wallet-info">
@@ -23,12 +135,24 @@ const WalletOverview = ({ wallet }) => {
             style={{ cursor: 'pointer' }}
             title="Click para copiar dirección completa"
           >
-            {wallet.address}
+            {formatAddress(wallet.address)}
           </div>
           <div className="wallet-balance">
-            {wallet.balance || '0.00'}
+            {loading ? (
+              <span className="loading-spinner"></span>
+            ) : (
+              formatAmount(balance.total)
+            )}
           </div>
           <div className="balance-label">PRGLD</div>
+          <div className="network-status">
+            <span className={`status-indicator ${networkStatus.connected ? 'connected' : 'disconnected'}`}>
+              {networkStatus.connected ? '🟢' : '🔴'}
+            </span>
+            <span className="status-text">
+              {networkStatus.connected ? 'Conectado' : 'Desconectado'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -59,32 +183,32 @@ const WalletOverview = ({ wallet }) => {
         <div className="stat-card">
           <div className="stat-icon">💰</div>
           <div className="stat-content">
-            <div className="stat-value">0.00</div>
-            <div className="stat-label">Balance Total</div>
+            <div className="stat-value">{formatAmount(balance.confirmed)}</div>
+            <div className="stat-label">Balance Confirmado</div>
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-icon">⏳</div>
+          <div className="stat-content">
+            <div className="stat-value">{formatAmount(balance.pending)}</div>
+            <div className="stat-label">Balance Pendiente</div>
           </div>
         </div>
         
         <div className="stat-card">
           <div className="stat-icon">📊</div>
           <div className="stat-content">
-            <div className="stat-value">0</div>
-            <div className="stat-label">Transacciones</div>
+            <div className="stat-value">{recentTransactions.length}</div>
+            <div className="stat-label">Transacciones Recientes</div>
           </div>
         </div>
         
         <div className="stat-card">
-          <div className="stat-icon">⭐</div>
+          <div className="stat-icon">🌐</div>
           <div className="stat-content">
-            <div className="stat-value">0</div>
-            <div className="stat-label">Reputación</div>
-          </div>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon">🏆</div>
-          <div className="stat-content">
-            <div className="stat-value">0.00</div>
-            <div className="stat-label">Recompensas</div>
+            <div className="stat-value">{networkStatus.connectedPeers || 0}</div>
+            <div className="stat-label">Peers Conectados</div>
           </div>
         </div>
       </div>
@@ -93,13 +217,54 @@ const WalletOverview = ({ wallet }) => {
       <div className="recent-activity">
         <h3>Actividad Reciente</h3>
         <div className="activity-list">
-          <div className="activity-empty">
-            <div className="empty-icon">📭</div>
-            <p>No hay transacciones recientes</p>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Tus transacciones aparecerán aquí una vez que empieces a usar tu cartera
-            </p>
-          </div>
+          {loading ? (
+            <div className="loading-transactions">
+              <span className="loading-spinner"></span>
+              Cargando transacciones...
+            </div>
+          ) : recentTransactions.length > 0 ? (
+            <div className="transactions-preview">
+              {recentTransactions.slice(0, 3).map((tx, index) => (
+                <div key={tx.hash || index} className="transaction-preview">
+                  <div className="tx-icon">
+                    {getTransactionIcon(tx)}
+                  </div>
+                  <div className="tx-details">
+                    <div className="tx-type">
+                      {getTransactionType(tx) === 'received' ? 'Recibido' : 'Enviado'}
+                    </div>
+                    <div className="tx-address">
+                      {formatAddress(
+                        getTransactionType(tx) === 'received' 
+                          ? tx.from_address 
+                          : tx.to_address
+                      )}
+                    </div>
+                    <div className="tx-date">
+                      {new Date(tx.timestamp * 1000).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="tx-amount">
+                    <span className={getTransactionType(tx) === 'received' ? 'positive' : 'negative'}>
+                      {getTransactionType(tx) === 'received' ? '+' : '-'}
+                      {formatAmount(tx.amount)} PRGLD
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <button className="view-all-button">
+                Ver todas las transacciones
+              </button>
+            </div>
+          ) : (
+            <div className="activity-empty">
+              <div className="empty-icon">📭</div>
+              <p>No hay transacciones recientes</p>
+              <p style={{ fontSize: '14px', color: '#666' }}>
+                Tus transacciones aparecerán aquí una vez que empieces a usar tu cartera
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -108,20 +273,20 @@ const WalletOverview = ({ wallet }) => {
         <h3>Estado de la Red</h3>
         <div className="network-stats">
           <div className="network-stat">
-            <span className="network-label">Nodos IA Activos:</span>
-            <span className="network-value">156</span>
+            <span className="network-label">Altura del Bloque:</span>
+            <span className="network-value">#{networkStatus.blockHeight || 0}</span>
           </div>
           <div className="network-stat">
             <span className="network-label">TPS Actual:</span>
-            <span className="network-value">87</span>
+            <span className="network-value">{networkStatus.tps || 0}</span>
           </div>
           <div className="network-stat">
-            <span className="network-label">Último Bloque:</span>
-            <span className="network-value">#12,847</span>
+            <span className="network-label">Peers Conectados:</span>
+            <span className="network-value">{networkStatus.connectedPeers || 0}</span>
           </div>
           <div className="network-stat">
-            <span className="network-label">Supply Circulante:</span>
-            <span className="network-value">9,876,543 PRGLD</span>
+            <span className="network-label">Sincronización:</span>
+            <span className="network-value">{networkStatus.syncProgress || 0}%</span>
           </div>
         </div>
       </div>

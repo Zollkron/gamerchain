@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import WalletOverview from './WalletOverview';
 import WalletManager from './WalletManager';
+import SendTransaction from './SendTransaction';
+import ReceiveTransaction from './ReceiveTransaction';
+import TransactionHistory from './TransactionHistory';
 
 const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -15,7 +18,23 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     { id: 'settings', label: 'Configuración', icon: '⚙️' }
   ];
 
+  const handleTransactionSent = (result) => {
+    // Refresh wallet data after successful transaction
+    if (onWalletsUpdate) {
+      onWalletsUpdate();
+    }
+  };
+
   const renderContent = () => {
+    if (!wallet) {
+      return (
+        <div className="no-wallet-selected">
+          <h3>No hay cartera seleccionada</h3>
+          <p>Selecciona una cartera desde el menú de carteras para continuar.</p>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'overview':
         return <WalletOverview wallet={wallet} />;
@@ -29,11 +48,16 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
           />
         );
       case 'send':
-        return <div className="content-placeholder">Funcionalidad de Envío - Próximamente</div>;
+        return (
+          <SendTransaction 
+            wallet={wallet}
+            onTransactionSent={handleTransactionSent}
+          />
+        );
       case 'receive':
-        return <div className="content-placeholder">Funcionalidad de Recepción - Próximamente</div>;
+        return <ReceiveTransaction wallet={wallet} />;
       case 'history':
-        return <div className="content-placeholder">Historial de Transacciones - Próximamente</div>;
+        return <TransactionHistory wallet={wallet} />;
       case 'mining':
         return <div className="content-placeholder">Minería con IA - Próximamente</div>;
       case 'settings':
