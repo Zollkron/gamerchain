@@ -1,0 +1,45 @@
+# PlayerGold Default Configuration
+# This file contains the default settings for PlayerGold
+
+environment: "development"
+debug: true
+
+network:
+  p2p_port: 8333
+  api_port: 8080
+  max_peers: 50
+  network_id: "playergold-testnet"
+  bootstrap_nodes:
+    - "127.0.0.1:8333"
+
+ai:
+  models_dir: "./models"
+  challenge_timeout: 0.1
+  min_validators: 3
+  certified_models:
+    gemma-3-4b: "sha256:placeholder_hash_gemma_3_4b"
+    mistral-3b: "sha256:placeholder_hash_mistral_3b"
+    qwen-3-4b: "sha256:placeholder_hash_qwen_3_4b"
+
+blockchain:
+  data_dir: "./data"
+  block_time: 10
+  max_block_size: 1048576
+  reward_distribution:
+    ai_nodes: 0.9
+    stakers: 0.1
+  fee_distribution:
+    liquidity: 0.2
+    burn: 0.8
+
+wallet:
+  wallet_dir: "./wallets"
+  enable_2fa: true
+  auto_backup: true
+  backup_interval: 3600
+
+logging:
+  log_level: "INFO"
+  log_file: "./logs/playergold.log"
+  log_rotation: true
+  max_log_size: 10485760
