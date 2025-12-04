@@ -9,10 +9,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportWallet: (walletId) => ipcRenderer.invoke('export-wallet', walletId),
   getWallets: () => ipcRenderer.invoke('get-wallets'),
   
-  // File dialogs
+  // File operations
   showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   
-  // Platform info
-  platform: process.platform
+  // AI Model operations
+  downloadModel: (modelId, onProgress) => ipcRenderer.invoke('download-model', modelId, onProgress),
+  verifyModelHash: (modelId, filePath) => ipcRenderer.invoke('verify-model-hash', modelId, filePath),
+  getInstalledModels: () => ipcRenderer.invoke('get-installed-models'),
+  uninstallModel: (modelId) => ipcRenderer.invoke('uninstall-model', modelId),
+  
+  // Mining operations
+  startMining: (modelId, walletAddress) => ipcRenderer.invoke('start-mining', modelId, walletAddress),
+  stopMining: () => ipcRenderer.invoke('stop-mining'),
+  getMiningStatus: () => ipcRenderer.invoke('get-mining-status'),
+  
+  // System information
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  checkSystemRequirements: () => ipcRenderer.invoke('check-system-requirements'),
+  
+  // Event listeners
+  onMiningStatusChange: (callback) => {
+    ipcRenderer.on('mining-status-change', callback);
+    return () => ipcRenderer.removeListener('mining-status-change', callback);
+  },
+  
+  onModelDownloadProgress: (callback) => {
+    ipcRenderer.on('model-download-progress', callback);
+    return () => ipcRenderer.removeListener('model-download-progress', callback);
+  }
 });
