@@ -1,0 +1,29 @@
+{
+  "demo_user_123": {
+    "user_id": "demo_user_123",
+    "current_score": 500.0,
+    "tokens_burned": "45.0",
+    "voluntary_burns": 4,
+    "transaction_count": 5,
+    "last_activity": "2025-12-04T23:44:25.537063",
+    "priority_level": 5
+  },
+  "medium_rep_user": {
+    "user_id": "medium_rep_user",
+    "current_score": 150.0,
+    "tokens_burned": "10",
+    "voluntary_burns": 1,
+    "transaction_count": 0,
+    "last_activity": "2025-12-04T23:44:25.579590",
+    "priority_level": 3
+  },
+  "high_rep_user": {
+    "user_id": "high_rep_user",
+    "current_score": 550.0,
+    "tokens_burned": "50",
+    "voluntary_burns": 1,
+    "transaction_count": 0,
+    "last_activity": "2025-12-04T23:44:25.580594",
+    "priority_level": 5
+  }
+}
