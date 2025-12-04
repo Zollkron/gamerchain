@@ -1,9 +1,11 @@
-const crypto = require('crypto');
-const bip39 = require('bip39');
-const HDKey = require('hdkey');
-const secp256k1 = require('secp256k1');
-const Store = require('electron-store');
-const CryptoJS = require('crypto-js');
+import crypto from 'crypto';
+import bip39 from 'bip39';
+import HDKey from 'hdkey';
+import secp256k1 from 'secp256k1';
+import Store from 'electron-store';
+import CryptoJS from 'crypto-js';
+import { NetworkService } from './NetworkService';
+import { TransactionService } from './TransactionService';
 
 class WalletService {
   constructor() {
@@ -280,6 +282,160 @@ class WalletService {
       };
     }
   }
+
+  /**
+   * Get wallet balance from network
+   * @param {string} walletId - Wallet ID
+   * @returns {Object} Balance information
+   */
+  async getWalletBalance(walletId) {
+    try {
+      const wallets = this.store.get('wallets', []);
+      const wallet = wallets.find(w => w.id === walletId);
+      
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      const balanceResult = await NetworkService.getBalance(wallet.address);
+      
+      if (balanceResult.success) {
+        // Update cached balance
+        wallet.balance = balanceResult.balance;
+        this.store.set('wallets', wallets);
+      }
+
+      return balanceResult;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        balance: '0'
+      };
+    }
+  }
+
+  /**
+   * Send transaction from wallet
+   * @param {string} walletId - Wallet ID
+   * @param {Object} transactionData - Transaction details
+   * @returns {Object} Transaction result
+   */
+  async sendTransaction(walletId, transactionData) {
+    try {
+      const wallets = this.store.get('wallets', []);
+      const wallet = wallets.find(w => w.id === walletId);
+      
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      // Decrypt private key
+      const decryptedPrivateKey = CryptoJS.AES.decrypt(
+        wallet.encryptedPrivateKey, 
+        'playergold-wallet-key'
+      ).toString(CryptoJS.enc.Utf8);
+
+      // Prepare transaction parameters
+      const txParams = {
+        fromAddress: wallet.address,
+        toAddress: transactionData.toAddress,
+        amount: transactionData.amount,
+        privateKey: decryptedPrivateKey,
+        transactionType: transactionData.transactionType || 'transfer',
+        memo: transactionData.memo || ''
+      };
+
+      // Send transaction through TransactionService
+      const result = await TransactionService.sendTransaction(txParams);
+      
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get transaction history for wallet
+   * @param {string} walletId - Wallet ID
+   * @param {number} limit - Number of transactions
+   * @param {number} offset - Pagination offset
+   * @returns {Object} Transaction history
+   */
+  async getTransactionHistory(walletId, limit = 50, offset = 0) {
+    try {
+      const wallets = this.store.get('wallets', []);
+      const wallet = wallets.find(w => w.id === walletId);
+      
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      const result = await TransactionService.getTransactionHistory(
+        wallet.address, 
+        limit, 
+        offset
+      );
+      
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        transactions: []
+      };
+    }
+  }
+
+  /**
+   * Get pending transactions for wallet
+   * @param {string} walletId - Wallet ID
+   * @returns {Array} Pending transactions
+   */
+  getPendingTransactions(walletId) {
+    try {
+      const wallets = this.store.get('wallets', []);
+      const wallet = wallets.find(w => w.id === walletId);
+      
+      if (!wallet) {
+        return [];
+      }
+
+      return TransactionService.getPendingTransactions(wallet.address);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Sync wallet with network
+   * @param {string} walletId - Wallet ID
+   * @returns {Object} Sync result
+   */
+  async syncWallet(walletId) {
+    try {
+      // Get fresh balance
+      const balanceResult = await this.getWalletBalance(walletId);
+      
+      // Get recent transactions
+      const historyResult = await this.getTransactionHistory(walletId, 10, 0);
+      
+      return {
+        success: true,
+        balance: balanceResult.balance || '0',
+        recentTransactions: historyResult.transactions || [],
+        syncedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
-module.exports = { WalletService: new WalletService() };
+export const WalletService = new WalletService();
