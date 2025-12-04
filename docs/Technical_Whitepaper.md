@@ -894,7 +894,7 @@ ws.on('network_stats', (stats) => {...});
 
 ---
 
-**© 2024 PlayerGold Team. Todos los derechos reservados.**
+**© 2025 Zollkron. Todos los derechos reservados.**
 
 *Este whitepaper es un documento técnico y no constituye una oferta de inversión. Los lectores deben realizar su propia investigación antes de tomar decisiones financieras.*
 ---
