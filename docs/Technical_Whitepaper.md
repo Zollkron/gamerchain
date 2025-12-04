@@ -1,9 +1,9 @@
-# PlayerGold ($PRGLD) - Technical Whitepaper
+# PlayerGold ($PRGLD) - GamerChain Technical Whitepaper
 ## Arquitectura Distribuida de Nodos IA con Consenso PoAIP
 
 **Versión:** 2.0  
-**Fecha:** Diciembre 2024  
-**Autores:** Equipo de Desarrollo GamerChain  
+**Fecha:** Diciembre 2025  
+**Autores:** Zollkron  
 
 ---
 
