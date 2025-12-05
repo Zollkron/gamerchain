@@ -6,12 +6,14 @@ import './App.css';
 import WalletSetup from './components/WalletSetup';
 import Dashboard from './components/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
+import SecurityLogin from './components/SecurityLogin';
 
 function App() {
   const [wallets, setWallets] = useState([]);
   const [currentWallet, setCurrentWallet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     loadWallets();
@@ -47,6 +49,10 @@ function App() {
     setCurrentWallet(wallet);
   };
 
+  const handleAuthenticated = () => {
+    setAuthenticated(true);
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -63,6 +69,11 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  // Show security login if wallets exist but not authenticated
+  if (wallets.length > 0 && !authenticated) {
+    return <SecurityLogin onAuthenticated={handleAuthenticated} />;
   }
 
   return (
