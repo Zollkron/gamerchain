@@ -1,10 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { WalletService } from '../services/WalletService';
 import { TransactionService } from '../services/TransactionService';
+import { AddressBookService } from '../services/AddressBookService';
 
-const SendTransaction = ({ wallet, onTransactionSent }) => {
+// Mini AddressBook component for dropdown
+const AddressBookMini = ({ onAddressSelect }) => {
+  const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAddresses();
+  }, []);
+
+  const loadAddresses = async () => {
+    setLoading(true);
+    const result = await AddressBookService.getAddresses();
+    if (result.success) {
+      setAddresses(result.addresses.slice(0, 10)); // Show only first 10
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return <div className="loading-mini">Cargando direcciones...</div>;
+  }
+
+  if (addresses.length === 0) {
+    return <div className="empty-mini">No hay direcciones guardadas</div>;
+  }
+
+  return (
+    <div className="address-list-mini">
+      {addresses.map(address => (
+        <div
+          key={address.id}
+          className="address-item-mini"
+          onClick={() => onAddressSelect(address)}
+        >
+          <div className="address-label">{address.label}</div>
+          <div className="address-string">{address.address}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const SendTransaction = ({ wallet, onTransactionSent, prefilledAddress = '' }) => {
   const [formData, setFormData] = useState({
-    toAddress: '',
+    toAddress: prefilledAddress,
     amount: '',
     memo: ''
   });
@@ -13,10 +56,19 @@ const SendTransaction = ({ wallet, onTransactionSent }) => {
   const [success, setSuccess] = useState('');
   const [feeEstimate, setFeeEstimate] = useState(null);
   const [balance, setBalance] = useState('0');
+  const [showAddressBook, setShowAddressBook] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState([]);
 
   useEffect(() => {
     loadWalletBalance();
+    loadSavedAddresses();
   }, [wallet]);
+
+  useEffect(() => {
+    if (prefilledAddress) {
+      setFormData(prev => ({ ...prev, toAddress: prefilledAddress }));
+    }
+  }, [prefilledAddress]);
 
   useEffect(() => {
     if (formData.toAddress && formData.amount) {
@@ -36,6 +88,17 @@ const SendTransaction = ({ wallet, onTransactionSent }) => {
       }
     } catch (error) {
       console.error('Error loading balance:', error);
+    }
+  };
+
+  const loadSavedAddresses = async () => {
+    try {
+      const result = await AddressBookService.getFrequentlyUsed(5);
+      if (result.success) {
+        setSavedAddresses(result.addresses);
+      }
+    } catch (error) {
+      console.error('Error loading saved addresses:', error);
     }
   };
 
@@ -123,6 +186,9 @@ const SendTransaction = ({ wallet, onTransactionSent }) => {
         // Refresh balance
         await loadWalletBalance();
         
+        // Mark address as used in address book
+        await AddressBookService.markAddressAsUsed(formData.toAddress);
+        
         // Notify parent component
         if (onTransactionSent) {
           onTransactionSent(result);
@@ -151,6 +217,31 @@ const SendTransaction = ({ wallet, onTransactionSent }) => {
     return TransactionService.formatAmount(amount);
   };
 
+  const handleAddressSelect = (address) => {
+    setFormData(prev => ({ ...prev, toAddress: address.address }));
+    setShowAddressBook(false);
+  };
+
+  const handleSaveAddress = async () => {
+    if (!formData.toAddress) return;
+    
+    const label = prompt('Ingresa una etiqueta para esta dirección:');
+    if (!label) return;
+    
+    const result = await AddressBookService.addAddress({
+      address: formData.toAddress,
+      label: label,
+      category: 'general'
+    });
+    
+    if (result.success) {
+      alert('Dirección guardada en la libreta');
+      loadSavedAddresses();
+    } else {
+      alert('Error al guardar: ' + result.error);
+    }
+  };
+
   return (
     <div className="send-transaction">
       <div className="transaction-header">
@@ -164,16 +255,76 @@ const SendTransaction = ({ wallet, onTransactionSent }) => {
       <form onSubmit={handleSubmit} className="transaction-form">
         <div className="form-group">
           <label htmlFor="toAddress">Dirección de destino</label>
-          <input
-            type="text"
-            id="toAddress"
-            name="toAddress"
-            value={formData.toAddress}
-            onChange={handleInputChange}
-            placeholder="PG1234567890abcdef..."
-            className="form-input"
-            disabled={loading}
-          />
+          <div className="address-input-group">
+            <input
+              type="text"
+              id="toAddress"
+              name="toAddress"
+              value={formData.toAddress}
+              onChange={handleInputChange}
+              placeholder="PG1234567890abcdef..."
+              className="form-input"
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowAddressBook(!showAddressBook)}
+              className="address-book-button"
+              disabled={loading}
+              title="Seleccionar de libreta de direcciones"
+            >
+              📇
+            </button>
+            {formData.toAddress && (
+              <button
+                type="button"
+                onClick={handleSaveAddress}
+                className="save-address-button"
+                disabled={loading}
+                title="Guardar en libreta de direcciones"
+              >
+                💾
+              </button>
+            )}
+          </div>
+          
+          {/* Frequently used addresses */}
+          {savedAddresses.length > 0 && (
+            <div className="frequent-addresses">
+              <small>Direcciones frecuentes:</small>
+              <div className="address-chips">
+                {savedAddresses.map(addr => (
+                  <button
+                    key={addr.id}
+                    type="button"
+                    className="address-chip"
+                    onClick={() => handleAddressSelect(addr)}
+                    disabled={loading}
+                  >
+                    {addr.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Address book dropdown */}
+          {showAddressBook && (
+            <div className="address-book-dropdown">
+              <div className="dropdown-header">
+                <span>Seleccionar dirección guardada</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddressBook(false)}
+                  className="close-dropdown"
+                >
+                  ×
+                </button>
+              </div>
+              <AddressBookMini onAddressSelect={handleAddressSelect} />
+            </div>
+          )}
+          
           <small className="form-help">
             Dirección PlayerGold válida (comienza con 'PG')
           </small>

@@ -5,6 +5,9 @@ import SendTransaction from './SendTransaction';
 import ReceiveTransaction from './ReceiveTransaction';
 import TransactionHistory from './TransactionHistory';
 import MiningTab from './MiningTab';
+import SecuritySettings from './SecuritySettings';
+import AddressBook from './AddressBook';
+import PrivacySettings from './PrivacySettings';
 
 const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -16,7 +19,9 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     { id: 'history', label: 'Historial', icon: '📋' },
     { id: 'mining', label: 'Minería', icon: '⛏️' },
     { id: 'wallets', label: 'Carteras', icon: '👛' },
-    { id: 'settings', label: 'Configuración', icon: '⚙️' }
+    { id: 'addressbook', label: 'Libreta', icon: '📇' },
+    { id: 'privacy', label: 'Privacidad', icon: '🔒' },
+    { id: 'security', label: 'Seguridad', icon: '🛡️' }
   ];
 
   const handleTransactionSent = (result) => {
@@ -61,8 +66,16 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
         return <TransactionHistory wallet={wallet} />;
       case 'mining':
         return <MiningTab wallet={wallet} />;
-      case 'settings':
-        return <div className="content-placeholder">Configuración - Próximamente</div>;
+      case 'addressbook':
+        return <AddressBook onAddressSelect={(address) => {
+          // Switch to send tab and pre-fill address
+          setActiveTab('send');
+          // You could pass the selected address to SendTransaction component
+        }} />;
+      case 'privacy':
+        return <PrivacySettings wallet={wallet} />;
+      case 'security':
+        return <SecuritySettings />;
       default:
         return <WalletOverview wallet={wallet} />;
     }
