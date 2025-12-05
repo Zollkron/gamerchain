@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlayerGold Block Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎮 PlayerGold Block Explorer</h1>
+            <p class="tagline">Explorador de Bloques GamerChain</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Network Health Dashboard -->
+        <section class="dashboard">
+            <h2>Estado de la Red</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-icon">⚡</div>
+                    <div class="metric-value" id="tps">0</div>
+                    <div class="metric-label">TPS (Transacciones/seg)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">⏱️</div>
+                    <div class="metric-value" id="latency">0ms</div>
+                    <div class="metric-label">Latencia Promedio</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">🤖</div>
+                    <div class="metric-value" id="active-nodes">0</div>
+                    <div class="metric-label">Nodos IA Activos</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">📦</div>
+                    <div class="metric-value" id="block-height">0</div>
+                    <div class="metric-label">Altura del Bloque</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-time Charts -->
+        <section class="charts">
+            <h2>Métricas en Tiempo Real</h2>
+            <div class="chart-container">
+                <canvas id="tps-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="node-distribution-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Recent Blocks -->
+        <section class="blocks-section">
+            <h2>Bloques Recientes</h2>
+            <div class="table-container">
+                <table id="blocks-table">
+                    <thead>
+                        <tr>
+                            <th>Altura</th>
+                            <th>Hash</th>
+                            <th>Timestamp</th>
+                            <th>Transacciones</th>
+                            <th>Validadores IA</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="blocks-tbody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Recent Transactions -->
+        <section class="transactions-section">
+            <h2>Transacciones Recientes</h2>
+            <div class="table-container">
+                <table id="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Hash</th>
+                            <th>De</th>
+                            <th>Para</th>
+                            <th>Cantidad</th>
+                            <th>Fee</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-tbody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- AI Nodes Distribution -->
+        <section class="nodes-section">
+            <h2>Distribución de Nodos IA</h2>
+            <div id="nodes-list" class="nodes-grid">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Search -->
+        <section class="search-section">
+            <h2>Buscar</h2>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Buscar por hash de bloque, transacción o dirección...">
+                <button id="search-btn">🔍 Buscar</button>
+            </div>
+            <div id="search-results"></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 PlayerGold - Hecho por gamers para gamers</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="explorer.js"></script>
+</body>
+</html>
