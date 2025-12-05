@@ -184,9 +184,30 @@ pytest tests/test_blockchain.py -v
 pytest tests/test_ai_nodes.py -v
 ```
 
+## 🌐 Landing Page
+
+PlayerGold features a modern, responsive landing page showcasing the project:
+
+```bash
+# View the landing page locally
+cd web
+python -m http.server 8000
+# Visit http://localhost:8000
+```
+
+Features:
+- **Automatic OS Detection**: Recommends the right wallet download for your system
+- **Modern Design**: Dark theme with smooth animations and gradients
+- **Responsive**: Optimized for desktop, tablet, and mobile
+- **Mission Statement**: Clear presentation of values and goals
+- **Technology Overview**: Explanation of PoAIP consensus and GamerChain
+
+See [web/README.md](web/README.md) for deployment instructions.
+
 ## 📚 Documentation
 
 - [Whitepaper](docs/Whitepaper.pdf) - Technical specifications
+- [Technical Whitepaper](docs/Technical_Whitepaper.md) - Detailed architecture
 - [API Documentation](docs/api.md) - Game integration guide
 - [Development Guide](docs/development.md) - Contributing guidelines
 
