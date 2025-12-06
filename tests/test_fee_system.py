@@ -193,35 +193,40 @@ class TestTokenBurnManager:
         assert self.burn_manager.burn_address == "0x0000000000000000000000000000000000000000"
     
     def test_process_fee_distribution(self):
-        """Test fee distribution processing (20% liquidity, 80% burn)."""
+        """Test fee distribution processing (60% burn, 30% maintenance, 10% liquidity)."""
         total_fee = Decimal('100.0')
         
-        liquidity_tx, burn_tx = self.burn_manager.process_fee_distribution(
+        burn_tx, maintenance_tx, liquidity_tx = self.burn_manager.process_fee_distribution(
             total_fee=total_fee,
             block_index=1,
             transaction_hash="test_hash"
         )
         
-        # Check liquidity transaction (20%)
-        assert liquidity_tx.to_address == "liquidity_pool"
-        assert liquidity_tx.amount == Decimal('20.0')  # 20% of 100
-        assert liquidity_tx.fee == Decimal('0.0')
-        
-        # Check burn transaction (80%)
+        # Check burn transaction (60%)
         assert burn_tx.to_address == self.burn_manager.burn_address
-        assert burn_tx.amount == Decimal('80.0')  # 80% of 100
+        assert burn_tx.amount == Decimal('60.0')  # 60% of 100
         assert burn_tx.transaction_type == TransactionType.BURN
+        
+        # Check maintenance transaction (30%)
+        assert maintenance_tx.to_address == "network_maintenance"
+        assert maintenance_tx.amount == Decimal('30.0')  # 30% of 100
+        assert maintenance_tx.fee == Decimal('0.0')
+        
+        # Check liquidity transaction (10%)
+        assert liquidity_tx.to_address == "liquidity_pool"
+        assert liquidity_tx.amount == Decimal('10.0')  # 10% of 100
+        assert liquidity_tx.fee == Decimal('0.0')
         
         # Check burn was recorded
         assert len(self.burn_manager.burn_records) == 1
         burn_record = self.burn_manager.burn_records[0]
-        assert burn_record.amount_burned == Decimal('80.0')
+        assert burn_record.amount_burned == Decimal('60.0')
         assert burn_record.burn_reason == "fee_burn"
         
         # Check supply was updated
         supply_info = self.burn_manager.get_supply_info()
-        assert supply_info.total_burned == Decimal('80.0')
-        assert supply_info.circulating_supply == Decimal('999920.0')  # 1000000 - 80
+        assert supply_info.total_burned == Decimal('60.0')
+        assert supply_info.circulating_supply == Decimal('999940.0')  # 1000000 - 60
     
     def test_process_voluntary_burn(self):
         """Test voluntary token burning."""
@@ -311,12 +316,12 @@ class TestTokenBurnManager:
     def test_get_total_burned_by_reason(self):
         """Test getting total burned by reason."""
         # Add burns
-        self.burn_manager.process_fee_distribution(Decimal('100.0'), 1, "hash1")  # Burns 80
+        self.burn_manager.process_fee_distribution(Decimal('100.0'), 1, "hash1")  # Burns 60
         self.burn_manager.process_voluntary_burn("user1", Decimal('200.0'), 2)
         self.burn_manager.process_voluntary_burn("user2", Decimal('300.0'), 3)
         
         fee_burned = self.burn_manager.get_total_burned_by_reason("fee_burn")
-        assert fee_burned == Decimal('80.0')  # 80% of 100
+        assert fee_burned == Decimal('60.0')  # 60% of 100
         
         voluntary_burned = self.burn_manager.get_total_burned_by_reason("voluntary_burn")
         assert voluntary_burned == Decimal('500.0')  # 200 + 300

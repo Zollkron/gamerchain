@@ -197,16 +197,19 @@ class TestFeeDistribution:
     """Test cases for FeeDistribution class."""
     
     def test_fee_distribution_calculation(self):
-        """Test fee distribution calculation (20% liquidity, 80% burn)."""
+        """Test fee distribution calculation (60% burn, 30% maintenance, 10% liquidity)."""
         total_fee = Decimal('100.0')
         
         distribution = FeeDistribution.calculate_distribution(total_fee)
         
-        assert distribution.liquidity_pool == Decimal('20.0')  # 20%
-        assert distribution.burn_address == Decimal('80.0')    # 80%
+        assert distribution.burn_address == Decimal('60.0')           # 60%
+        assert distribution.network_maintenance == Decimal('30.0')    # 30%
+        assert distribution.liquidity_pool == Decimal('10.0')         # 10%
         
         # Verify total adds up
-        total = distribution.liquidity_pool + distribution.burn_address
+        total = (distribution.burn_address + 
+                distribution.network_maintenance + 
+                distribution.liquidity_pool)
         assert total == total_fee
     
     def test_fee_distribution_precision(self):
@@ -215,11 +218,13 @@ class TestFeeDistribution:
         
         distribution = FeeDistribution.calculate_distribution(total_fee)
         
-        expected_liquidity = Decimal('0.246')  # 20% of 1.23
-        expected_burn = Decimal('0.984')       # 80% of 1.23
+        expected_burn = Decimal('0.738')         # 60% of 1.23
+        expected_maintenance = Decimal('0.369')  # 30% of 1.23
+        expected_liquidity = Decimal('0.123')    # 10% of 1.23
         
-        assert distribution.liquidity_pool == expected_liquidity
         assert distribution.burn_address == expected_burn
+        assert distribution.network_maintenance == expected_maintenance
+        assert distribution.liquidity_pool == expected_liquidity
     
     def test_fee_distribution_zero_fee(self):
         """Test fee distribution with zero fee."""
@@ -227,8 +232,9 @@ class TestFeeDistribution:
         
         distribution = FeeDistribution.calculate_distribution(total_fee)
         
-        assert distribution.liquidity_pool == Decimal('0.0')
         assert distribution.burn_address == Decimal('0.0')
+        assert distribution.network_maintenance == Decimal('0.0')
+        assert distribution.liquidity_pool == Decimal('0.0')
 
 
 class TestTransactionTypes:

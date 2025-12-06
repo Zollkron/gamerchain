@@ -672,7 +672,7 @@ def player_to_player_nft_trade(nft_id, seller, buyer, price):
 ### Contacto
 Para soporte técnico o preguntas:
 - GitHub Issues: [repositorio]
-- Email: support@playergold.com
+- Email: support@playergold.es
 - Discord: [servidor de desarrollo]
 
 ---

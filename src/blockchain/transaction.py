@@ -171,10 +171,15 @@ class Transaction:
 class FeeDistribution:
     """
     Fee distribution structure for PlayerGold tokenomics.
-    20% to liquidity pool, 80% to burn address.
+    
+    Nueva distribución justa:
+    - 60% quemado (deflación del token)
+    - 30% mantenimiento de red (dominio, hosting, desarrollo, infraestructura)
+    - 10% pool de liquidez
     """
-    liquidity_pool: Decimal  # 20% of fees
-    burn_address: Decimal    # 80% of fees
+    burn_address: Decimal           # 60% quemado
+    network_maintenance: Decimal    # 30% mantenimiento de red
+    liquidity_pool: Decimal         # 10% liquidez
     
     @classmethod
     def calculate_distribution(cls, total_fee: Decimal) -> 'FeeDistribution':
@@ -187,10 +192,13 @@ class FeeDistribution:
         Returns:
             FeeDistribution: Calculated distribution
         """
-        liquidity_amount = total_fee * Decimal('0.20')
-        burn_amount = total_fee * Decimal('0.80')
+        # Nueva distribución: 60% quema, 30% mantenimiento, 10% liquidez
+        burn_amount = total_fee * Decimal('0.60')
+        network_maintenance_amount = total_fee * Decimal('0.30')
+        liquidity_amount = total_fee * Decimal('0.10')
         
         return cls(
-            liquidity_pool=liquidity_amount,
-            burn_address=burn_amount
+            burn_address=burn_amount,
+            network_maintenance=network_maintenance_amount,
+            liquidity_pool=liquidity_amount
         )

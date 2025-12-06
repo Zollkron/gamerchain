@@ -215,9 +215,12 @@ class TokenBurnManager:
     Manages token burning operations and supply tracking.
     """
     
-    def __init__(self, initial_supply: Decimal = Decimal('1000000000')):  # 1B tokens
+    def __init__(self, 
+                 initial_supply: Decimal = Decimal('1000000000'),  # 1B tokens
+                 network_maintenance_address: str = "network_maintenance"):
         self.burn_address = "0x0000000000000000000000000000000000000000"
         self.liquidity_pool_address = "liquidity_pool"
+        self.network_maintenance_address = network_maintenance_address  # Nueva dirección para mantenimiento
         
         self.supply_info = SupplyInfo(
             total_supply=initial_supply,
@@ -233,9 +236,14 @@ class TokenBurnManager:
         total_fee: Decimal,
         block_index: int,
         transaction_hash: str
-    ) -> Tuple[Transaction, Transaction]:
+    ) -> Tuple[Transaction, Transaction, Transaction]:
         """
-        Process fee distribution (20% liquidity, 80% burn).
+        Process fee distribution (60% burn, 30% maintenance, 10% liquidity).
+        
+        Nueva distribución justa:
+        - 60% quemado para deflación
+        - 30% mantenimiento de red (dominio, hosting, desarrollo)
+        - 10% pool de liquidez
         
         Args:
             total_fee: Total fee amount to distribute
@@ -243,23 +251,12 @@ class TokenBurnManager:
             transaction_hash: Hash of the fee-generating transaction
             
         Returns:
-            Tuple[Transaction, Transaction]: Liquidity and burn transactions
+            Tuple[Transaction, Transaction, Transaction]: Burn, maintenance, and liquidity transactions
         """
         distribution = FeeDistribution.calculate_distribution(total_fee)
         current_time = time.time()
         
-        # Create liquidity pool transaction (20%)
-        liquidity_tx = Transaction(
-            from_address="fee_collector",
-            to_address=self.liquidity_pool_address,
-            amount=distribution.liquidity_pool,
-            fee=Decimal('0.0'),  # No fee on fee distribution
-            timestamp=current_time,
-            transaction_type=TransactionType.TRANSFER,
-            nonce=0
-        )
-        
-        # Create burn transaction (80%)
+        # Create burn transaction (60%)
         burn_tx = Transaction(
             from_address="fee_collector",
             to_address=self.burn_address,
@@ -267,7 +264,29 @@ class TokenBurnManager:
             fee=Decimal('0.0'),  # No fee on burning
             timestamp=current_time,
             transaction_type=TransactionType.BURN,
+            nonce=0
+        )
+        
+        # Create network maintenance transaction (30%)
+        maintenance_tx = Transaction(
+            from_address="fee_collector",
+            to_address=self.network_maintenance_address,
+            amount=distribution.network_maintenance,
+            fee=Decimal('0.0'),  # No fee on maintenance
+            timestamp=current_time,
+            transaction_type=TransactionType.TRANSFER,
             nonce=1
+        )
+        
+        # Create liquidity pool transaction (10%)
+        liquidity_tx = Transaction(
+            from_address="fee_collector",
+            to_address=self.liquidity_pool_address,
+            amount=distribution.liquidity_pool,
+            fee=Decimal('0.0'),  # No fee on fee distribution
+            timestamp=current_time,
+            transaction_type=TransactionType.TRANSFER,
+            nonce=2
         )
         
         # Record the burn
@@ -278,7 +297,7 @@ class TokenBurnManager:
             reason="fee_burn"
         )
         
-        return liquidity_tx, burn_tx
+        return burn_tx, maintenance_tx, liquidity_tx
     
     def process_voluntary_burn(
         self,

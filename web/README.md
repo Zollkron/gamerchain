@@ -91,9 +91,9 @@ En producción, actualiza las URLs de descarga en `script.js`:
 
 ```javascript
 const downloadURLs = {
-    'windows': 'https://releases.playergold.com/PlayerGold-Setup-Windows.exe',
-    'macos': 'https://releases.playergold.com/PlayerGold-Setup-macOS.dmg',
-    'linux': 'https://releases.playergold.com/PlayerGold-Setup-Linux.AppImage'
+    'windows': 'https://releases.playergold.es/PlayerGold-Setup-Windows.exe',
+    'macos': 'https://releases.playergold.es/PlayerGold-Setup-macOS.dmg',
+    'linux': 'https://releases.playergold.es/PlayerGold-Setup-Linux.AppImage'
 };
 ```
 
