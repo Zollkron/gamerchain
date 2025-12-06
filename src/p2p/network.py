@@ -1,6 +1,7 @@
 """
 P2P Network implementation for PlayerGold distributed AI nodes.
 Implements libp2p-based networking with auto-discovery and TLS encryption.
+Integrated with NetworkManager for testnet/mainnet support.
 """
 
 import asyncio
@@ -19,6 +20,8 @@ import socket
 import datetime
 import threading
 from concurrent.futures import ThreadPoolExecutor
+
+from ..network.network_manager import NetworkManager, NetworkType
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,7 @@ class PeerInfo:
     address: str
     port: int
     public_key: str
+    network_id: str  # Network ID for compatibility validation
     reputation: float = 0.0
     last_seen: float = 0.0
     is_ai_node: bool = False
@@ -67,15 +71,26 @@ class P2PNetwork:
     
     def __init__(self, 
                  node_id: str,
-                 listen_port: int = 8000,
+                 listen_port: Optional[int] = None,
                  max_peers: int = 50,
                  enable_mdns: bool = True,
-                 enable_dht: bool = True):
+                 enable_dht: bool = True,
+                 network_manager: Optional[NetworkManager] = None):
         self.node_id = node_id
-        self.listen_port = listen_port
+        
+        # Initialize or use provided NetworkManager
+        self.network_manager = network_manager or NetworkManager()
+        network_config = self.network_manager.get_network_config()
+        
+        # Use network-specific port if not provided
+        self.listen_port = listen_port or network_config.p2p_port
         self.max_peers = max_peers
         self.enable_mdns = enable_mdns
         self.enable_dht = enable_dht
+        
+        # Store network info
+        self.network_id = network_config.network_id
+        self.network_type = self.network_manager.get_current_network()
         
         # Network state
         self.peers: Dict[str, PeerInfo] = {}
@@ -103,10 +118,13 @@ class P2PNetwork:
             'bytes_sent': 0,
             'bytes_received': 0,
             'connections_established': 0,
-            'connections_lost': 0
+            'connections_lost': 0,
+            'incompatible_peers_rejected': 0
         }
         
-        logger.info(f"P2P Network initialized for node {node_id} on port {listen_port}")
+        logger.info(f"P2P Network initialized for node {node_id}")
+        logger.info(f"Network: {self.network_type.value} ({self.network_id})")
+        logger.info(f"Port: {self.listen_port}")
     
     async def start(self):
         """Start the P2P network"""
@@ -250,11 +268,13 @@ class P2PNetwork:
             await writer.wait_closed()
     
     async def _perform_handshake(self, reader, writer) -> Optional[PeerInfo]:
-        """Perform P2P handshake with peer"""
+        """Perform P2P handshake with peer and validate network compatibility"""
         try:
-            # Send our node info
+            # Send our node info including network_id
             handshake_data = {
                 'node_id': self.node_id,
+                'network_id': self.network_id,  # Include network ID
+                'network_type': self.network_type.value,
                 'version': '1.0.0',
                 'capabilities': ['ai_node', 'validator'],
                 'timestamp': time.time()
@@ -266,13 +286,31 @@ class P2PNetwork:
             peer_data = await self._receive_raw_message(reader)
             
             if peer_data and 'node_id' in peer_data:
+                # Validate network compatibility
+                peer_network_id = peer_data.get('network_id', 'unknown')
+                
+                if not self.network_manager.validate_network_compatibility(peer_network_id):
+                    logger.warning(
+                        f"Rejecting peer {peer_data['node_id']}: "
+                        f"incompatible network (peer={peer_network_id}, local={self.network_id})"
+                    )
+                    self.stats['incompatible_peers_rejected'] += 1
+                    return None
+                
                 peer_info = PeerInfo(
                     peer_id=peer_data['node_id'],
                     address=writer.get_extra_info('peername')[0],
                     port=writer.get_extra_info('peername')[1],
                     public_key='',  # TODO: Extract from TLS certificate
+                    network_id=peer_network_id,
                     last_seen=time.time()
                 )
+                
+                logger.info(
+                    f"Handshake successful with {peer_info.peer_id} "
+                    f"on {peer_network_id}"
+                )
+                
                 return peer_info
             
         except Exception as e:
