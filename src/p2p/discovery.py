@@ -90,9 +90,9 @@ class PeerDiscovery:
         """Setup default bootstrap nodes"""
         # In production, these would be well-known stable nodes
         default_bootstrap = [
-            BootstrapNode("bootstrap1.playergold.com", 8000, "bootstrap1", ""),
-            BootstrapNode("bootstrap2.playergold.com", 8000, "bootstrap2", ""),
-            BootstrapNode("bootstrap3.playergold.com", 8000, "bootstrap3", ""),
+            BootstrapNode("bootstrap1.playergold.es", 8000, "bootstrap1", ""),
+            BootstrapNode("bootstrap2.playergold.es", 8000, "bootstrap2", ""),
+            BootstrapNode("bootstrap3.playergold.es", 8000, "bootstrap3", ""),
         ]
         
         self.bootstrap_nodes.extend(default_bootstrap)

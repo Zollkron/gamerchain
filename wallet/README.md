@@ -24,7 +24,7 @@ Cartera de escritorio oficial para PlayerGold ($PRGLD) - Hecho por gamers para g
 
 1. Clona el repositorio:
 ```bash
-git clone https://github.com/playergold/wallet-desktop.git
+git clone https://github.com/Zollkron/gamerchain.git
 cd wallet-desktop
 ```
 
@@ -158,10 +158,10 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 
 ## Soporte
 
-- **Documentación**: [docs.playergold.com](https://docs.playergold.com)
+- **Documentación**: [docs.playergold.es](https://docs.playergold.es)
 - **Discord**: [discord.gg/playergold](https://discord.gg/playergold)
-- **Issues**: [GitHub Issues](https://github.com/playergold/wallet-desktop/issues)
-- **Email**: support@playergold.com
+- **Issues**: [GitHub Issues](https://github.com/Zollkron/gamerchain/issues)
+- **Email**: support@playergold.es
 
 ## Roadmap
 

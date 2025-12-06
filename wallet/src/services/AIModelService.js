@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 class AIModelService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_MODEL_REPOSITORY_URL || 'https://models.playergold.com';
+    this.baseUrl = process.env.REACT_APP_MODEL_REPOSITORY_URL || 'https://models.playergold.es';
     this.modelsPath = process.env.REACT_APP_MODELS_PATH || './models';
   }
 

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "playergold"
 version = "0.1.0"
 description = "PlayerGold - Distributed AI Nodes Architecture for Gaming Blockchain"
-authors = [{name = "PlayerGold Team", email = "dev@playergold.com"}]
+authors = [{name = "Zollkron", email = "dev@playergold.es"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.9"
@@ -49,9 +49,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://playergold.com"
-Repository = "https://github.com/playergold/playergold"
-Documentation = "https://docs.playergold.com"
+Homepage = "https://playergold.es"
+Repository = "https://github.com/Zollkron/gamerchain"
+Documentation = "https://docs.playergold.es"
 
 [tool.setuptools.packages.find]
 where = ["src"]

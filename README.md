@@ -1,135 +1,198 @@
-# PlayerGold ($PRGLD) - Distributed AI Nodes Architecture
+# PlayerGold ($PRGLD) - GamerChain Blockchain
 
-PlayerGold is a revolutionary gaming blockchain built on the GamerChain technology, implementing a Proof-of-AI-Participation (PoAIP) consensus mechanism. The system is designed by gamers, for gamers, providing censorship-free payments with fair commissions and democratic governance managed exclusively by artificial intelligence.
+**Desarrollado por**: Zollkron  
+**Web oficial**: https://playergold.es  
+**Repositorio**: https://github.com/Zollkron/gamerchain
 
-## 🎮 Vision
+PlayerGold es una blockchain revolucionaria para el ecosistema gaming, construida sobre la tecnología GamerChain, implementando un mecanismo de consenso Proof-of-AI-Participation (PoAIP). El sistema está diseñado por gamers, para gamers, proporcionando pagos sin censura con comisiones justas y gobernanza democrática gestionada exclusivamente por inteligencia artificial.
 
-**"Made by gamers for gamers, totally free, democratic and without censorship"**
+## ⚠️ DISCLAIMER LEGAL / DESCARGO DE RESPONSABILIDAD
 
-PlayerGold aims to eliminate human bias and corruption from blockchain governance by utilizing distributed AI nodes for consensus. This ensures fair, transparent, and ideologically neutral management of the gaming economy.
+**⚠️ LEA ATENTAMENTE ANTES DE USAR ESTE SOFTWARE ⚠️**
 
-## 🏗️ Architecture Overview
+El desarrollador (Zollkron) **NO se hace responsable de manera alguna** del uso que cualquier persona o entidad pueda hacer de este software, blockchain o token. 
 
-### Core Components
+**Condiciones importantes:**
 
-- **AI Nodes**: Distributed nodes running certified AI models (Gemma 3 4B, Mistral 3B, Qwen 3 4B)
-- **PoAIP Consensus**: Proof-of-AI-Participation ensuring only AIs can validate blocks
-- **Equitable Rewards**: 90% to AI validators, 10% to stakers - no economic advantage
-- **Fee Management**: 20% to liquidity pools, 80% burned to maintain token value
-- **Gaming Integration**: APIs and SDKs for seamless game integration
+1. Este proyecto se desarrolla como **hobby personal**, sin obligaciones contractuales con nadie
+2. El desarrollador se limita únicamente a programar y publicar el código
+3. **Cualquier uso de esta herramienta se realiza EXCLUSIVAMENTE BAJO SU PROPIA RESPONSABILIDAD**
+4. El desarrollador NO está obligado a seguir dictámenes o regulaciones de ninguna jurisdicción
+5. La blockchain es completamente auditable por cualquier persona en cualquier momento
+6. Los usuarios son responsables de cumplir con las leyes de sus respectivas jurisdicciones
 
-### Key Features
+**Para información legal completa, consulte [PROJECT_INFO.md](PROJECT_INFO.md)**
 
-- ✅ **AI-Only Consensus**: Eliminates human corruption and bias
-- ✅ **Fair Distribution**: Equal rewards regardless of hardware power
-- ✅ **Censorship Resistant**: No ideological restrictions on transactions
-- ✅ **Gaming Focused**: Built specifically for gaming economies
-- ✅ **Cross-Platform**: Desktop wallet for Windows, macOS, and Linux
+## 🎮 Visión
 
-## 🚀 Quick Start
+**"Hecho por gamers para gamers, totalmente libre, democrático y sin censura"**
 
-### Prerequisites
+PlayerGold busca eliminar el sesgo humano y la corrupción de la gobernanza blockchain utilizando nodos de IA distribuidos para el consenso. Esto asegura una gestión justa, transparente e ideológicamente neutral de la economía gaming.
 
-- Python 3.9 or higher
-- 4GB VRAM (for AI node operation)
-- 4+ CPU cores
+## 🏗️ Arquitectura General
+
+### Componentes Principales
+
+- **Nodos IA**: Nodos distribuidos ejecutando modelos de IA certificados (Gemma 3 4B, Mistral 3B, Qwen 3 4B)
+- **Consenso PoAIP**: Proof-of-AI-Participation asegurando que solo IAs puedan validar bloques
+- **Recompensas Equitativas**: 90% para validadores IA, 10% para stakers - sin ventaja económica
+- **Gestión de Fees**: 60% quemado (deflación), 30% mantenimiento de red, 10% liquidez
+- **Integración Gaming**: APIs y SDKs para integración perfecta en juegos
+
+### Características Clave
+
+- ✅ **Consenso Solo-IA**: Elimina corrupción y sesgo humano
+- ✅ **Distribución Justa**: Recompensas iguales independientemente del poder de hardware
+- ✅ **Resistente a Censura**: Sin restricciones ideológicas en transacciones
+- ✅ **Enfocado en Gaming**: Construido específicamente para economías gaming
+- ✅ **Multi-Plataforma**: Wallet de escritorio para Windows, macOS y Linux
+- ✅ **Testnet y Mainnet**: Redes separadas para pruebas y producción
+- ✅ **Escalabilidad Dinámica**: Funciona desde 2 nodos hasta miles
+
+## 🌐 Redes
+
+### Testnet (Red de Pruebas)
+
+Red para desarrollo y pruebas con tokens ficticios:
+- Tokens sin valor real
+- Blockchain independiente de mainnet
+- Reseteable si es necesario
+- Acceso público para pruebas
+
+### Mainnet (Red Principal)
+
+Red de producción con tokens reales:
+- Tokens con valor real ($PRGLD)
+- Blockchain permanente e inmutable
+- Transacciones definitivas
+
+### Escalabilidad y Quorum
+
+**Principio**: "Donde hayan dos reunidos, mi espíritu está con ellos"
+
+- **Quorum fijo**: 66% (dos tercios) de los nodos activos
+- **Mínimo de nodos**: 2 nodos para funcionamiento
+- **Escalabilidad dinámica**: Se adapta automáticamente al número de nodos
+- **Tolerancia a fallos**: Hasta 33% de nodos pueden fallar sin afectar consenso
+
+Ejemplos:
+- 2 nodos → Quorum: 2 (100%)
+- 3 nodos → Quorum: 2 (66%)
+- 10 nodos → Quorum: 7 (66%)
+- 100 nodos → Quorum: 67 (66%)
+- 1000 nodos → Quorum: 667 (66%)
+
+## 🚀 Inicio Rápido
+
+### Requisitos Previos
+
+- Python 3.9 o superior
+- 4GB VRAM (para operación de nodo IA)
+- 4+ núcleos CPU
 - 8GB RAM
 
-### Installation
+### Instalación
 
-1. **Clone the repository**
+1. **Clonar el repositorio**
    ```bash
-   git clone https://github.com/playergold/playergold.git
-   cd playergold
+   git clone https://github.com/Zollkron/gamerchain.git
+   cd gamerchain
    ```
 
-2. **Set up the environment**
+2. **Configurar el entorno**
    ```bash
    make setup
    make dev-install
    ```
 
-3. **Configure the application**
+3. **Configurar la aplicación**
    ```bash
    cp .env.example .env
-   # Edit .env with your settings
+   # Editar .env con tu configuración
    ```
 
-4. **Run PlayerGold**
+4. **Ejecutar PlayerGold**
    ```bash
    make run
-   # or
+   # o
    python -m src.main
    ```
 
-### Development Commands
+### Comandos de Desarrollo
 
 ```bash
-# Install dependencies
-make install          # Production dependencies
-make dev-install      # Development dependencies
+# Instalar dependencias
+make install          # Dependencias de producción
+make dev-install      # Dependencias de desarrollo
 
-# Development
-make run             # Run the application
-make test            # Run test suite
-make lint            # Run linting checks
-make format          # Format code with black
-make clean           # Clean build artifacts
+# Desarrollo
+make run             # Ejecutar la aplicación
+make test            # Ejecutar suite de tests
+make lint            # Ejecutar verificaciones de linting
+make format          # Formatear código con black
+make clean           # Limpiar artefactos de build
 
-# Project management
-make setup           # Initial project setup
-make check-structure # View project structure
+# Gestión de proyecto
+make setup           # Configuración inicial del proyecto
+make check-structure # Ver estructura del proyecto
 ```
 
-## 📁 Project Structure
+## 📁 Estructura del Proyecto
 
 ```
-playergold/
-├── src/                    # Main source code
-│   ├── blockchain/         # Blockchain core and PoAIP consensus
-│   ├── ai_nodes/          # AI model management and validation
-│   ├── p2p/               # Peer-to-peer networking
-│   ├── wallet/            # Desktop wallet implementation
-│   ├── api/               # REST/GraphQL API for games
-│   ├── utils/             # Common utilities and logging
-│   ├── main.py            # Application entry point
-│   └── cli.py             # Command line interface
-├── config/                # Configuration management
-│   ├── config.py          # Configuration classes
-│   └── default.yaml       # Default settings
-├── tests/                 # Test suite
-├── web/                   # Landing page and web interface
-├── docs/                  # Documentation
-├── requirements.txt       # Python dependencies
-├── pyproject.toml        # Project configuration
-└── Makefile              # Development commands
+gamerchain/
+├── src/                    # Código fuente principal
+│   ├── blockchain/         # Core blockchain y consenso PoAIP
+│   ├── consensus/          # Sistemas de consenso y tolerancia a fallos
+│   ├── ai_nodes/          # Gestión y validación de modelos IA
+│   ├── p2p/               # Red peer-to-peer
+│   ├── reputation/        # Sistema de reputación
+│   ├── monitoring/        # Monitoreo y alertas
+│   ├── api/               # REST/GraphQL API para juegos
+│   ├── utils/             # Utilidades comunes y logging
+│   ├── main.py            # Punto de entrada de la aplicación
+│   └── cli.py             # Interfaz de línea de comandos
+├── wallet/                # Wallet de escritorio (Electron)
+├── web/                   # Landing page y interfaz web
+├── explorer/              # Explorador de blockchain
+├── config/                # Gestión de configuración
+│   ├── config.py          # Clases de configuración
+│   └── default.yaml       # Configuración por defecto
+├── tests/                 # Suite de tests
+├── docs/                  # Documentación
+├── examples/              # Ejemplos de uso
+├── requirements.txt       # Dependencias Python
+├── pyproject.toml        # Configuración del proyecto
+├── PROJECT_INFO.md       # Información legal y del proyecto
+└── Makefile              # Comandos de desarrollo
 ```
 
-## 🔧 Configuration
+## 🔧 Configuración
 
-PlayerGold uses a hierarchical configuration system:
+PlayerGold usa un sistema de configuración jerárquico:
 
-1. **Default values** in `config/config.py`
-2. **YAML files** like `config/default.yaml`
-3. **Environment variables** from `.env` file
-4. **Command line arguments**
+1. **Valores por defecto** en `config/config.py`
+2. **Archivos YAML** como `config/default.yaml`
+3. **Variables de entorno** desde archivo `.env`
+4. **Argumentos de línea de comandos**
 
-### Key Configuration Options
+### Opciones de Configuración Clave
 
 ```yaml
-# Network settings
+# Configuración de red
 network:
   p2p_port: 8333
   api_port: 8080
   max_peers: 50
+  quorum_percentage: 0.66  # 66% quorum
 
-# AI configuration
+# Configuración IA
 ai:
   models_dir: "./models"
   challenge_timeout: 0.1
   min_validators: 3
 
-# Blockchain settings
+# Configuración blockchain
 blockchain:
   data_dir: "./data"
   block_time: 10
@@ -138,99 +201,108 @@ blockchain:
     stakers: 0.1
 ```
 
-## 🤖 AI Models
+## 🤖 Modelos IA
 
-PlayerGold supports certified AI models with verified SHA-256 hashes:
+PlayerGold soporta modelos de IA certificados con hashes SHA-256 verificados:
 
-- **Gemma 3 4B**: Optimized for mathematical challenges
-- **Mistral 3B**: Efficient inference and validation
-- **Qwen 3 4B**: Multilingual support and robustness
+- **Gemma 3 4B**: Optimizado para desafíos matemáticos
+- **Mistral 3B**: Inferencia y validación eficiente
+- **Qwen 3 4B**: Soporte multilingüe y robustez
 
-### Model Verification
+### Verificación de Modelos
 
-All AI models undergo strict verification:
-1. SHA-256 hash validation against certified list
-2. Capability testing for blockchain operations
-3. Performance benchmarking for <100ms response time
+Todos los modelos IA pasan por verificación estricta:
+1. Validación de hash SHA-256 contra lista certificada
+2. Pruebas de capacidad para operaciones blockchain
+3. Benchmarking de rendimiento para respuesta <100ms
 
-## 🎯 Consensus Mechanism (PoAIP)
+## 🎯 Mecanismo de Consenso (PoAIP)
 
-Proof-of-AI-Participation ensures only artificial intelligence can participate in consensus:
+Proof-of-AI-Participation asegura que solo inteligencia artificial puede participar en consenso:
 
-1. **Challenge Generation**: Mathematical problems requiring AI capabilities
-2. **Solution Submission**: AIs solve challenges in <100ms
-3. **Cross-Validation**: Minimum 3 AIs validate each solution
-4. **Reward Distribution**: Equal rewards for all participating AIs
+1. **Generación de Desafíos**: Problemas matemáticos que requieren capacidades IA
+2. **Envío de Soluciones**: IAs resuelven desafíos en <100ms
+3. **Validación Cruzada**: Mínimo 3 IAs validan cada solución
+4. **Distribución de Recompensas**: Recompensas iguales para todas las IAs participantes
 
-## 🛡️ Security Features
+## 🛡️ Características de Seguridad
 
-- **Model Integrity**: SHA-256 verification of AI models
-- **Sandboxed Execution**: Isolated AI model execution
-- **Cross-Validation**: Multiple AI verification of solutions
-- **Reputation System**: Behavioral tracking and penalties
-- **Network Encryption**: TLS 1.3 for all communications
+- **Integridad de Modelos**: Verificación SHA-256 de modelos IA
+- **Ejecución Aislada**: Ejecución de modelos IA en sandbox
+- **Validación Cruzada**: Verificación múltiple de soluciones por IAs
+- **Sistema de Reputación**: Seguimiento de comportamiento y penalizaciones
+- **Encriptación de Red**: TLS 1.3 para todas las comunicaciones
+- **Tolerancia a Fallos**: Recuperación automática de nodos caídos
+- **Defensa contra Ataques**: Detección y mitigación automática
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
+Ejecutar la suite completa de tests:
 
 ```bash
-# Run all tests
+# Ejecutar todos los tests
 make test
 
-# Run specific test categories
+# Ejecutar categorías específicas de tests
 pytest tests/test_infrastructure.py -v
 pytest tests/test_blockchain.py -v
 pytest tests/test_ai_nodes.py -v
+pytest tests/test_consensus.py -v
+pytest tests/test_fault_tolerance.py -v
 ```
 
 ## 🌐 Landing Page
 
-PlayerGold features a modern, responsive landing page showcasing the project:
+PlayerGold cuenta con una landing page moderna y responsive:
 
 ```bash
-# View the landing page locally
+# Ver la landing page localmente
 cd web
 python -m http.server 8000
-# Visit http://localhost:8000
+# Visitar http://localhost:8000
 ```
 
-Features:
-- **Automatic OS Detection**: Recommends the right wallet download for your system
-- **Modern Design**: Dark theme with smooth animations and gradients
-- **Responsive**: Optimized for desktop, tablet, and mobile
-- **Mission Statement**: Clear presentation of values and goals
-- **Technology Overview**: Explanation of PoAIP consensus and GamerChain
+Características:
+- **Detección Automática de SO**: Recomienda la descarga correcta del wallet
+- **Diseño Moderno**: Tema oscuro con animaciones suaves y gradientes
+- **Responsive**: Optimizado para escritorio, tablet y móvil
+- **Declaración de Misión**: Presentación clara de valores y objetivos
+- **Visión General Tecnológica**: Explicación del consenso PoAIP y GamerChain
 
-See [web/README.md](web/README.md) for deployment instructions.
+Ver [web/README.md](web/README.md) para instrucciones de despliegue.
 
-## 📚 Documentation
+## 📚 Documentación
 
-- [Whitepaper](docs/Whitepaper.pdf) - Technical specifications
-- [Technical Whitepaper](docs/Technical_Whitepaper.md) - Detailed architecture
-- [API Documentation](docs/api.md) - Game integration guide
-- [Development Guide](docs/development.md) - Contributing guidelines
+- [PROJECT_INFO.md](PROJECT_INFO.md) - Información legal y del proyecto
+- [Technical Whitepaper](docs/Technical_Whitepaper.md) - Arquitectura detallada
+- [Fault Tolerance](docs/Fault_Tolerance_Implementation_Summary.md) - Sistema de tolerancia a fallos
+- [P2P Network](docs/P2P_Network_Implementation.md) - Red peer-to-peer
+- [Game Integration API](docs/Game_Integration_API.md) - Guía de integración para juegos
 
-## 🤝 Contributing
+## 🤝 Contribuciones
 
-PlayerGold is open source and welcomes contributions:
+Este es un proyecto de código abierto desarrollado como hobby. Las contribuciones son bienvenidas:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+1. Fork el repositorio
+2. Crea una rama de feature
+3. Realiza tus cambios
+4. Añade tests para nueva funcionalidad
+5. Envía un pull request
 
-## 📄 License
+**Nota**: Al contribuir, aceptas que tu código se libera bajo la misma licencia del proyecto y que no tienes expectativas de compensación o responsabilidad del desarrollador principal.
 
-PlayerGold is released under the MIT License. See [LICENSE](LICENSE) for details.
+## 📄 Licencia
 
-## 🌐 Links
+PlayerGold se libera bajo licencia de código abierto. Ver [LICENSE](LICENSE) para detalles.
 
-- **Website**: [playergold.com](https://playergold.com)
-- **Documentation**: [docs.playergold.com](https://docs.playergold.com)
-- **GitHub**: [github.com/playergold/playergold](https://github.com/playergold/playergold)
+## 🌐 Enlaces
+
+- **Web Oficial**: https://playergold.es
+- **GitHub**: https://github.com/Zollkron/gamerchain
+- **Desarrollador**: Zollkron
 
 ---
 
-**PlayerGold** - Empowering gamers with AI-driven, censorship-free blockchain technology.
+**PlayerGold** - Empoderando a gamers con tecnología blockchain impulsada por IA y libre de censura.
+
+**Desarrollado como hobby por Zollkron** - Sin garantías, sin responsabilidades, uso bajo tu propio riesgo.

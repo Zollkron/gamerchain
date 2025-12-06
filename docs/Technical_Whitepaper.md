@@ -3,7 +3,17 @@
 
 **Versión:** 2.0  
 **Fecha:** Diciembre 2025  
-**Autores:** Zollkron  
+**Desarrollador:** Zollkron  
+**Web:** https://playergold.es  
+**Repositorio:** https://github.com/Zollkron/gamerchain
+
+---
+
+## ⚠️ DISCLAIMER LEGAL
+
+**El desarrollador (Zollkron) NO se hace responsable de manera alguna del uso que cualquier persona o entidad pueda hacer de este software, blockchain o token.**
+
+Este proyecto se desarrolla como hobby personal, sin obligaciones contractuales. Cualquier uso se realiza EXCLUSIVAMENTE BAJO SU PROPIA RESPONSABILIDAD. Ver [PROJECT_INFO.md](../PROJECT_INFO.md) para información legal completa.
 
 ---
 
@@ -213,7 +223,102 @@ El sistema implementa múltiples mecanismos para detectar intervención humana:
 
 ---
 
-## 4. Tokenomics y Distribución de Recompensas
+## 4. Arquitectura de Red: Testnet y Mainnet
+
+### 4.1 Filosofía de Dos Redes
+
+PlayerGold implementa dos redes independientes para garantizar estabilidad y permitir innovación:
+
+#### 4.1.1 Testnet (Red de Pruebas)
+
+La testnet es un entorno de desarrollo y pruebas con las siguientes características:
+
+- **Tokens Ficticios**: Sin valor real, solo para pruebas
+- **Blockchain Independiente**: Completamente separada de mainnet
+- **Reseteable**: Puede ser reiniciada si es necesario
+- **Acceso Público**: Cualquiera puede unirse y probar
+- **Actualizaciones Frecuentes**: Nuevas características se prueban aquí primero
+
+**Configuración Testnet:**
+- Puerto P2P: 18333
+- Puerto API: 18080
+- Network ID: `playergold-testnet`
+- Bootstrap nodes: `testnet.playergold.es:18333`
+
+#### 4.1.2 Mainnet (Red Principal)
+
+La mainnet es la red de producción con tokens reales:
+
+- **Tokens Reales**: $PRGLD con valor real
+- **Blockchain Permanente**: Inmutable y definitiva
+- **Transacciones Definitivas**: No reversibles
+- **Alta Disponibilidad**: Operación 24/7
+- **Actualizaciones Controladas**: Solo después de pruebas exhaustivas en testnet
+
+**Configuración Mainnet:**
+- Puerto P2P: 8333
+- Puerto API: 8080
+- Network ID: `playergold-mainnet`
+- Bootstrap nodes: `seed1.playergold.es:8333`, `seed2.playergold.es:8333`
+
+### 4.2 Sistema de Quorum y Escalabilidad
+
+#### 4.2.1 Principio Fundamental
+
+**"Donde hayan dos reunidos, mi espíritu está con ellos"**
+
+Este principio bíblico aplicado a la red significa que PlayerGold puede funcionar con un mínimo de 2 nodos, escalando dinámicamente según la cantidad de participantes.
+
+#### 4.2.2 Reglas de Quorum
+
+El quorum es el número mínimo de nodos que deben estar de acuerdo para validar un bloque:
+
+- **Quorum Fijo**: 66% (dos tercios) de los nodos activos
+- **Mínimo de Nodos**: 2 nodos para operación de red
+- **Escalabilidad Dinámica**: Se adapta automáticamente al número de nodos
+
+#### 4.2.3 Ejemplos de Quorum
+
+| Nodos Totales | Quorum Requerido | Porcentaje |
+|---------------|------------------|------------|
+| 2             | 2                | 100%       |
+| 3             | 2                | 66.7%      |
+| 10            | 7                | 70%        |
+| 50            | 34               | 68%        |
+| 100           | 67               | 67%        |
+| 1000          | 667              | 66.7%      |
+
+**Nota**: Con 2 nodos, ambos deben estar de acuerdo (100%), lo que hace imposible un ataque. Con más nodos, se requiere controlar 66%+ para comprometer la red.
+
+#### 4.2.4 Tolerancia a Fallos
+
+El sistema puede tolerar hasta 33% de nodos fallidos sin afectar el consenso:
+
+- **2 nodos**: 0 fallos tolerados (ambos necesarios)
+- **3 nodos**: 1 fallo tolerado
+- **10 nodos**: 3 fallos tolerados
+- **100 nodos**: 33 fallos tolerados
+- **1000 nodos**: 333 fallos tolerados
+
+#### 4.2.5 Garantías de Seguridad
+
+1. **Imposibilidad de Ataque con 2 Nodos**: Ambos deben estar comprometidos
+2. **Resistencia a Ataques Mayoritarios**: Se requiere 66%+ de nodos maliciosos
+3. **Recuperación Automática**: Nodos caídos se sincronizan al volver
+4. **Particiones de Red**: Consenso continúa en partición mayoritaria
+5. **Escalabilidad Sin Límites**: Funciona igual con 2 o 10,000 nodos
+
+#### 4.2.6 Ventajas del Sistema
+
+- **Inicio Simple**: La red puede comenzar con solo 2 nodos honestos
+- **Crecimiento Orgánico**: Escala naturalmente con adopción
+- **Sin Puntos Únicos de Fallo**: No hay nodos "especiales" o "maestros"
+- **Democracia Real**: Cada nodo tiene el mismo peso en el consenso
+- **Resistencia a Censura**: Imposible censurar con menos del 66% de control
+
+---
+
+## 5. Tokenomics y Distribución de Recompensas
 
 ### 4.1 Información del Token
 
@@ -253,16 +358,27 @@ Los fees se calculan dinámicamente basados en:
 
 #### 4.3.2 Distribución de Fees
 
-- **20% al Pool de Liquidez**: Para facilitar trading
-- **80% a Dirección de Quema**: Para reducir supply circulante
+Nueva distribución justa que cubre los costos reales de operación:
+
+- **60% a Dirección de Quema**: Para reducir supply circulante (deflación)
+- **30% a Mantenimiento de Red**: Para cubrir gastos operativos:
+  - Contratación y renovación de dominio (playergold.es)
+  - Hosting de landing page y servicios web
+  - Infraestructura de API REST y servicios
+  - Recursos de red y tráfico del servidor
+  - Retribución para desarrolladores y contribuidores técnicos
+  - Mantenimiento y actualizaciones del sistema
+- **10% al Pool de Liquidez**: Para facilitar trading y liquidez
 
 ### 4.4 Mecanismo de Quema
 
 ```mermaid
 graph LR
     TX[Transacción] --> FEE[Fee Cobrado]
-    FEE --> LIQ[20% Pool Liquidez]
-    FEE --> BURN[80% Dirección Quema]
+    FEE --> BURN[60% Dirección Quema]
+    FEE --> MAINT[30% Mantenimiento Red]
+    FEE --> LIQ[10% Pool Liquidez]
+    
     BURN --> SUPPLY[Reducción Supply]
     SUPPLY --> VALUE[Incremento Valor]
 ```
@@ -840,7 +956,7 @@ GET    /api/v1/stats/node/{nodeId}
 
 ```javascript
 // Conexión WebSocket
-const ws = new WebSocket('wss://api.playergold.com/ws');
+const ws = new WebSocket('wss://api.playergold.es/ws');
 
 // Eventos disponibles
 ws.on('new_block', (block) => {...});
@@ -1311,10 +1427,10 @@ flowchart TD
 
 ### Documentación Técnica Adicional
 
-- **API Documentation**: [https://docs.playergold.com/api](https://docs.playergold.com/api)  (Por definir)
-- **SDK Documentation**: [https://docs.playergold.com/sdk](https://docs.playergold.com/sdk)  (Por definir)
-- **Node Setup Guide**: [https://docs.playergold.com/nodes](https://docs.playergold.com/nodes)  (Por definir)
-- **Developer Portal**: [https://developers.playergold.com](https://developers.playergold.com)  (Por definir)
+- **API Documentation**: [https://docs.playergold.es/api](https://docs.playergold.es/api)  (Por definir)
+- **SDK Documentation**: [https://docs.playergold.es/sdk](https://docs.playergold.es/sdk)  (Por definir)
+- **Node Setup Guide**: [https://docs.playergold.es/nodes](https://docs.playergold.es/nodes)  (Por definir)
+- **Developer Portal**: [https://developers.playergold.es](https://developers.playergold.es)  (Por definir)
 
 ### Información de Contacto
 
@@ -1348,7 +1464,7 @@ PlayerGold ($PRGLD) es un proyecto experimental que involucra tecnologías emerg
 - **Versión 2.0** (Diciembre 2025): Actualización completa con arquitectura PoAIP
 - **Próxima actualización**: Q1 2026
 
-Para recibir notificaciones de actualizaciones, suscríbase a nuestro newsletter en [https://playergold.com/newsletter](https://playergold.com/newsletter)  (Por definir)
+Para recibir notificaciones de actualizaciones, suscríbase a nuestro newsletter en [https://playergold.es/newsletter](https://playergold.es/newsletter)  (Por definir)
 
 ---
 

@@ -1,16 +1,40 @@
 # PlayerGold Default Configuration
-# This file contains the default settings for PlayerGold
+# Desarrollado por: Zollkron
+# Web: https://playergold.es
+# GitHub: https://github.com/Zollkron/gamerchain
 
 environment: "development"
 debug: true
 
+# Network Configuration
 network:
-  p2p_port: 8333
-  api_port: 8080
+  # Network type: "testnet" or "mainnet"
+  network_type: "testnet"
+  
+  # Testnet configuration
+  testnet:
+    p2p_port: 18333
+    api_port: 18080
+    network_id: "playergold-testnet"
+    bootstrap_nodes:
+      - "testnet.playergold.es:18333"
+  
+  # Mainnet configuration
+  mainnet:
+    p2p_port: 8333
+    api_port: 8080
+    network_id: "playergold-mainnet"
+    bootstrap_nodes:
+      - "seed1.playergold.es:8333"
+      - "seed2.playergold.es:8333"
+  
+  # General network settings
   max_peers: 50
-  network_id: "playergold-testnet"
-  bootstrap_nodes:
-    - "127.0.0.1:8333"
+  min_peers: 2  # Minimum 2 nodes for network operation
+  
+  # Consensus settings
+  quorum_percentage: 0.66  # 66% quorum (2/3 of active nodes)
+  min_nodes_for_consensus: 2  # "Donde hayan dos reunidos..."
 
 ai:
   models_dir: "./models"
@@ -29,8 +53,9 @@ blockchain:
     ai_nodes: 0.9
     stakers: 0.1
   fee_distribution:
-    liquidity: 0.2
-    burn: 0.8
+    burn: 0.6              # 60% quemado (deflación)
+    network_maintenance: 0.3  # 30% mantenimiento de red (dominio, hosting, desarrollo)
+    liquidity: 0.1         # 10% pool de liquidez
 
 wallet:
   wallet_dir: "./wallets"
