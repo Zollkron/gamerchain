@@ -472,4 +472,4 @@ class AddressBookService {
   }
 }
 
-export const AddressBookService = new AddressBookService();
+export default new AddressBookService();

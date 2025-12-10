@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { aiModelService } from '../services/AIModelService';
-import { miningService } from '../services/MiningService';
+import aiModelService from '../services/AIModelService';
+import miningService from '../services/MiningService';
 
 const MiningTab = ({ wallet }) => {
   const [miningStatus, setMiningStatus] = useState('stopped'); // stopped, downloading, starting, running, stopping

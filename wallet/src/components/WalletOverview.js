@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { WalletService } from '../services/WalletService';
-import { NetworkService } from '../services/NetworkService';
-import { TransactionService } from '../services/TransactionService';
+import WalletService from '../services/WalletService';
+import NetworkService from '../services/NetworkService';
+import TransactionService from '../services/TransactionService';
 
 const WalletOverview = ({ wallet }) => {
   const [balance, setBalance] = useState({

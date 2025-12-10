@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { WalletService } from '../services/WalletService';
-import { TransactionService } from '../services/TransactionService';
-import { AddressBookService } from '../services/AddressBookService';
+import WalletService from '../services/WalletService';
+import TransactionService from '../services/TransactionService';
+import AddressBookService from '../services/AddressBookService';
 
 // Mini AddressBook component for dropdown
 const AddressBookMini = ({ onAddressSelect }) => {

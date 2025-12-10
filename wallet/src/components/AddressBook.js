@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AddressBookService } from '../services/AddressBookService';
+import AddressBookService from '../services/AddressBookService';
 
 const AddressBook = ({ onAddressSelect }) => {
   const [addresses, setAddresses] = useState([]);

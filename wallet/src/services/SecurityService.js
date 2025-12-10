@@ -502,4 +502,4 @@ class SecurityService {
   }
 }
 
-export const SecurityService = new SecurityService();
+export default new SecurityService();

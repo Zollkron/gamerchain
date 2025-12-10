@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SecurityService } from '../services/SecurityService';
+import SecurityService from '../services/SecurityService';
 
 const SecuritySettings = () => {
   const [pinConfigured, setPinConfigured] = useState(false);

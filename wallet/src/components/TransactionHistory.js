@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { WalletService } from '../services/WalletService';
-import { TransactionService } from '../services/TransactionService';
+import WalletService from '../services/WalletService';
+import TransactionService from '../services/TransactionService';
 
 const TransactionHistory = ({ wallet }) => {
   const [transactions, setTransactions] = useState([]);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SecurityService } from '../services/SecurityService';
+import SecurityService from '../services/SecurityService';
 
 const SecurityLogin = ({ onAuthenticated }) => {
   const [step, setStep] = useState('pin'); // 'pin', '2fa', 'locked'

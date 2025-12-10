@@ -316,4 +316,4 @@ class NetworkService extends EventEmitter {
   }
 }
 
-export const NetworkService = new NetworkService();
+export default new NetworkService();

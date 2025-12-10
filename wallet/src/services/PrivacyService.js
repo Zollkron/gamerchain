@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import Store from 'electron-store';
-import { NetworkService } from './NetworkService';
+import NetworkService from './NetworkService';
 
 class PrivacyService {
   constructor() {
@@ -512,4 +512,4 @@ class PrivacyService {
   }
 }
 
-export const PrivacyService = new PrivacyService();
+export default new PrivacyService();
