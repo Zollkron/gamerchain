@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import CryptoJS from 'crypto-js';
-import { NetworkService } from './NetworkService';
+import NetworkService from './NetworkService';
 
 /**
  * TransactionService handles transaction creation, signing, and management
@@ -432,4 +432,4 @@ class TransactionService {
   }
 }
 
-export const TransactionService = new TransactionService();
+export default new TransactionService();

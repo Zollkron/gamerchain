@@ -1,4 +1,4 @@
-import { aiModelService } from './AIModelService';
+import aiModelService from './AIModelService';
 
 class MiningService {
   constructor() {
@@ -431,5 +431,4 @@ class MiningService {
   }
 }
 
-export const miningService = new MiningService();
-export default MiningService;
+export default new MiningService();

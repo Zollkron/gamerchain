@@ -1,13 +1,4 @@
 import React, { useState } from 'react';
-import WalletOverview from './WalletOverview';
-import WalletManager from './WalletManager';
-import SendTransaction from './SendTransaction';
-import ReceiveTransaction from './ReceiveTransaction';
-import TransactionHistory from './TransactionHistory';
-import MiningTab from './MiningTab';
-import SecuritySettings from './SecuritySettings';
-import AddressBook from './AddressBook';
-import PrivacySettings from './PrivacySettings';
 
 const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -43,41 +34,96 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
 
     switch (activeTab) {
       case 'overview':
-        return <WalletOverview wallet={wallet} />;
+        return (
+          <div className="tab-content">
+            <h2>Resumen de la Cartera</h2>
+            <div className="wallet-info">
+              <p><strong>Nombre:</strong> {wallet.name || 'Sin nombre'}</p>
+              <p><strong>Dirección:</strong> {wallet.address || 'No disponible'}</p>
+              <p><strong>Balance:</strong> 0.00 PRGLD</p>
+            </div>
+            <button onClick={() => {
+              localStorage.removeItem('playerGoldWallets');
+              window.location.reload();
+            }}>
+              Reset Wallet (para testing)
+            </button>
+          </div>
+        );
       case 'wallets':
         return (
-          <WalletManager 
-            wallets={wallets}
-            currentWallet={wallet}
-            onWalletChange={onWalletChange}
-            onWalletsUpdate={onWalletsUpdate}
-          />
+          <div className="tab-content">
+            <h2>Gestión de Carteras</h2>
+            <p>Carteras disponibles: {wallets.length}</p>
+            <div className="wallets-list">
+              {wallets.map((w, index) => (
+                <div key={index} className={`wallet-item ${w === wallet ? 'active' : ''}`}>
+                  <p><strong>{w.name || `Cartera ${index + 1}`}</strong></p>
+                  <p>{w.address}</p>
+                  {w !== wallet && (
+                    <button onClick={() => onWalletChange(w)}>Seleccionar</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         );
       case 'send':
         return (
-          <SendTransaction 
-            wallet={wallet}
-            onTransactionSent={handleTransactionSent}
-          />
+          <div className="tab-content">
+            <h2>Enviar Transacción</h2>
+            <p>Funcionalidad de envío - Próximamente</p>
+          </div>
         );
       case 'receive':
-        return <ReceiveTransaction wallet={wallet} />;
+        return (
+          <div className="tab-content">
+            <h2>Recibir Transacción</h2>
+            <p>Funcionalidad de recepción - Próximamente</p>
+          </div>
+        );
       case 'history':
-        return <TransactionHistory wallet={wallet} />;
+        return (
+          <div className="tab-content">
+            <h2>Historial de Transacciones</h2>
+            <p>Historial - Próximamente</p>
+          </div>
+        );
       case 'mining':
-        return <MiningTab wallet={wallet} />;
+        return (
+          <div className="tab-content">
+            <h2>Minería PoAIP</h2>
+            <p>Funcionalidad de minería - Próximamente</p>
+          </div>
+        );
       case 'addressbook':
-        return <AddressBook onAddressSelect={(address) => {
-          // Switch to send tab and pre-fill address
-          setActiveTab('send');
-          // You could pass the selected address to SendTransaction component
-        }} />;
+        return (
+          <div className="tab-content">
+            <h2>Libreta de Direcciones</h2>
+            <p>Libreta de direcciones - Próximamente</p>
+          </div>
+        );
       case 'privacy':
-        return <PrivacySettings wallet={wallet} />;
+        return (
+          <div className="tab-content">
+            <h2>Configuración de Privacidad</h2>
+            <p>Configuración de privacidad - Próximamente</p>
+          </div>
+        );
       case 'security':
-        return <SecuritySettings />;
+        return (
+          <div className="tab-content">
+            <h2>Configuración de Seguridad</h2>
+            <p>Configuración de seguridad - Próximamente</p>
+          </div>
+        );
       default:
-        return <WalletOverview wallet={wallet} />;
+        return (
+          <div className="tab-content">
+            <h2>Resumen de la Cartera</h2>
+            <p>Contenido por defecto</p>
+          </div>
+        );
     }
   };
 

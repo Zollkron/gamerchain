@@ -362,5 +362,4 @@ class AIModelService {
   }
 }
 
-export const aiModelService = new AIModelService();
-export default AIModelService;
+export default new AIModelService();
