@@ -62,12 +62,23 @@ class NetworkManager:
             
             # Load testnet config
             testnet_config = network_config.get('testnet', {})
+            
+            # Try to load testnet-specific config file
+            testnet_specific_config = self._load_testnet_specific_config()
+            if testnet_specific_config:
+                # Merge with specific testnet config
+                testnet_bootstrap_nodes = testnet_specific_config.get('bootstrap_nodes', testnet_config.get('bootstrap_nodes', ['testnet.playergold.es:18333']))
+                testnet_network_id = testnet_specific_config.get('network_id', testnet_config.get('network_id', 'playergold-testnet'))
+            else:
+                testnet_bootstrap_nodes = testnet_config.get('bootstrap_nodes', ['testnet.playergold.es:18333'])
+                testnet_network_id = testnet_config.get('network_id', 'playergold-testnet')
+            
             self.network_configs[NetworkType.TESTNET] = NetworkConfig(
                 network_type=NetworkType.TESTNET,
-                network_id=testnet_config.get('network_id', 'playergold-testnet'),
+                network_id=testnet_network_id,
                 p2p_port=testnet_config.get('p2p_port', 18333),
                 api_port=testnet_config.get('api_port', 18080),
-                bootstrap_nodes=testnet_config.get('bootstrap_nodes', ['testnet.playergold.es:18333']),
+                bootstrap_nodes=testnet_bootstrap_nodes,
                 min_nodes=network_config.get('min_nodes_for_consensus', 2),
                 quorum_percentage=network_config.get('quorum_percentage', 0.66)
             )
@@ -97,6 +108,19 @@ class NetworkManager:
         except Exception as e:
             logger.error(f"Error loading network configs: {e}")
             self._load_default_configs()
+    
+    def _load_testnet_specific_config(self) -> Optional[dict]:
+        """Load testnet-specific configuration from config/testnet/testnet.yaml"""
+        try:
+            testnet_config_file = Path("config/testnet/testnet.yaml")
+            if testnet_config_file.exists():
+                with open(testnet_config_file, 'r') as f:
+                    testnet_config = yaml.safe_load(f)
+                logger.info("Loaded testnet-specific configuration")
+                return testnet_config
+        except Exception as e:
+            logger.warning(f"Could not load testnet-specific config: {e}")
+        return None
     
     def _load_default_configs(self):
         """Load default network configurations"""

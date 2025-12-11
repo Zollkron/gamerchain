@@ -211,3 +211,51 @@ __marimo__/
 
 # VSCode
 .vscode/
+
+# PlayerGold Security - Información Sensible
+# ==========================================
+
+# Configuraciones específicas de testnet con IPs privadas
+config/testnet/node*.yaml
+config/testnet/testnet.yaml
+!config/testnet/*.example.yaml
+
+# Wallets de validadores con información específica
+wallets/testnet/validator-*.json
+!wallets/testnet/*.example.json
+
+# Datos de blockchain específicos
+data/testnet/
+data/mainnet/
+!data/testnet/.gitkeep
+!data/mainnet/.gitkeep
+
+# Logs que pueden contener IPs
+logs/
+*.log
+
+# Archivos de configuración local
+.env.local
+config.local.yaml
+testnet.local.yaml
+
+# Certificados y claves
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Backups que pueden contener información sensible
+*.backup
+*.bak
+backup/
+
+# Archivos temporales de desarrollo
+temp/
+tmp/
+.temp/
+
+# Documentación con información sensible (se crearán versiones seguras)
+SOLUCION_CONEXION_NODOS.md
+SETUP_NODO2_PORTATIL.md

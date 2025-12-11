@@ -24,3 +24,6 @@ initial_validators:
   public_key: pub_2a79d83a8b347e6934581210bf64bee9
   stake: 100000
 network_id: playergold-testnet-genesis
+bootstrap_nodes:
+  - "192.168.1.129:18333"
+  - "192.168.1.132:18333"

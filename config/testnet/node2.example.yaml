@@ -1,0 +1,19 @@
+consensus:
+  min_validators: 2
+  quorum_percentage: 0.66
+  type: PoAIP
+genesis_file: ../genesis.json
+network:
+  bootstrap_nodes:
+  - ${NODE1_IP}:18333
+  - ${NODE2_IP}:18333
+  external_ip: ${NODE2_IP}
+  listen_ip: 0.0.0.0
+  listen_port: 18333
+  network_id: playergold-testnet-genesis
+  network_type: testnet
+node:
+  data_dir: ./data/testnet/node2
+  is_validator: true
+  node_id: validator-node-2
+  validator_address: ${NODE2_VALIDATOR_ADDRESS}

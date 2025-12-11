@@ -1,0 +1,11 @@
+{
+  "created_at": "${CREATION_TIME}",
+  "node_name": "${NODE_NAME}",
+  "address": "${VALIDATOR_ADDRESS}",
+  "ip_address": "${NODE_IP}",
+  "port": 18333,
+  "stake": 100000,
+  "public_key": "${PUBLIC_KEY}",
+  "private_key_encrypted": "${ENCRYPTED_PRIVATE_KEY}",
+  "is_genesis_validator": true
+}
