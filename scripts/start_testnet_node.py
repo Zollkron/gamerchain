@@ -22,6 +22,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.network.network_manager import NetworkManager, NetworkType
 from src.p2p.network import P2PNetwork
+from src.api.game_api import GameAPI
+from src.blockchain.blockchain import Blockchain
+import threading
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +87,10 @@ async def start_testnet_node(node_id: str, port: int = None, config_file: str = 
     logger.info("  ✓ Data stored in: ./data/testnet")
     logger.info("")
     
+    # Initialize blockchain
+    logger.info("Initializing blockchain...")
+    blockchain = Blockchain()
+    
     # Initialize P2P network
     logger.info(f"Initializing node: {node_id}")
     p2p = P2PNetwork(
@@ -91,6 +98,20 @@ async def start_testnet_node(node_id: str, port: int = None, config_file: str = 
         listen_port=port,
         network_manager=network_manager
     )
+    
+    # Initialize API REST
+    logger.info("Initializing REST API...")
+    api = GameAPI(blockchain)
+    
+    # Start API REST in a separate thread
+    api_port = network_info.get('api_port', 18080)
+    logger.info(f"Starting REST API on port {api_port}...")
+    
+    def run_api():
+        api.run(host='0.0.0.0', port=api_port, debug=False)
+    
+    api_thread = threading.Thread(target=run_api, daemon=True)
+    api_thread.start()
     
     # Start P2P network
     logger.info("Starting P2P network...")
@@ -102,7 +123,12 @@ async def start_testnet_node(node_id: str, port: int = None, config_file: str = 
     logger.info("=" * 60)
     logger.info(f"  Node ID: {node_id}")
     logger.info(f"  Network: {p2p.network_id}")
-    logger.info(f"  Listening on port: {p2p.listen_port}")
+    logger.info(f"  P2P Port: {p2p.listen_port}")
+    logger.info(f"  API Port: {api_port}")
+    logger.info("")
+    logger.info("🌐 Services running:")
+    logger.info(f"  ✓ P2P Network: localhost:{p2p.listen_port}")
+    logger.info(f"  ✓ REST API: http://localhost:{api_port}")
     logger.info("")
     logger.info("Press Ctrl+C to stop the node")
     logger.info("=" * 60)
