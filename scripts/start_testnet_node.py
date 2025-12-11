@@ -31,13 +31,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def start_testnet_node(node_id: str, port: int = None):
+async def start_testnet_node(node_id: str, port: int = None, config_file: str = None, 
+                           is_validator: bool = False, genesis_file: str = None):
     """
     Start a testnet node
     
     Args:
         node_id: Unique identifier for this node
         port: Optional custom port (uses 18333 by default)
+        config_file: Configuration file path
+        is_validator: Whether this node is a validator
+        genesis_file: Genesis block file path
     """
     logger.info("=" * 60)
     logger.info("PlayerGold Testnet Node")
@@ -55,11 +59,22 @@ async def start_testnet_node(node_id: str, port: int = None):
     # Get network info
     network_info = network_manager.get_network_info()
     
+    # Load configuration if provided
+    if config_file:
+        logger.info(f"Loading configuration from: {config_file}")
+        # TODO: Load actual configuration
+    
+    # Load genesis file if provided
+    if genesis_file:
+        logger.info(f"Loading genesis block from: {genesis_file}")
+        # TODO: Load and validate genesis block
+    
     logger.info("Network Configuration:")
     logger.info(f"  Type: TESTNET")
     logger.info(f"  Network ID: {network_info['network_id']}")
     logger.info(f"  Default Port: {network_info['p2p_port']}")
     logger.info(f"  Bootstrap Nodes: {network_info['bootstrap_nodes']}")
+    logger.info(f"  Validator Mode: {'Yes' if is_validator else 'No'}")
     logger.info("")
     
     logger.info("⚠️  Testnet Information:")
@@ -138,10 +153,34 @@ Examples:
         help='Port to listen on (default: 18333 for testnet)'
     )
     
+    parser.add_argument(
+        '--config',
+        type=str,
+        help='Configuration file path'
+    )
+    
+    parser.add_argument(
+        '--validator',
+        action='store_true',
+        help='Run as validator node'
+    )
+    
+    parser.add_argument(
+        '--genesis-file',
+        type=str,
+        help='Genesis block file path'
+    )
+    
     args = parser.parse_args()
     
     try:
-        asyncio.run(start_testnet_node(args.node_id, args.port))
+        asyncio.run(start_testnet_node(
+            args.node_id, 
+            args.port, 
+            args.config, 
+            args.validator, 
+            args.genesis_file
+        ))
     except Exception as e:
         logger.error(f"Error starting testnet node: {e}", exc_info=True)
         sys.exit(1)
