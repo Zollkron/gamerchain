@@ -1,5 +1,6 @@
 @echo off
 echo Limpiando cache de Electron y reconstruyendo...
+cd /d "%~dp0"
 
 REM Limpiar cache de Electron
 if exist "%APPDATA%\playergold-wallet" (

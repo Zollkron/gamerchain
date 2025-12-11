@@ -16,7 +16,6 @@ import secrets
 
 from ..blockchain.transaction import Transaction
 from ..blockchain.block import Block
-from ..wallet.wallet import Wallet
 
 
 class GameAPI:
