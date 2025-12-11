@@ -1,0 +1,29 @@
+block_time: 10
+bootstrap_nodes:
+- ${NODE1_IP}:18333
+- ${NODE2_IP}:18333
+consensus:
+  min_validators: 2
+  quorum_percentage: 0.66
+  type: PoAIP
+faucet_amount: 1000
+genesis_time: ${GENESIS_TIME}
+initial_supply: 1000000
+initial_validators:
+- address: ${NODE1_VALIDATOR_ADDRESS}
+  created_at: ${GENESIS_TIME}
+  ip_address: ${NODE1_IP}
+  is_genesis_validator: true
+  node_name: validator-node-1
+  port: 18333
+  public_key: ${NODE1_PUBLIC_KEY}
+  stake: 100000
+- address: ${NODE2_VALIDATOR_ADDRESS}
+  created_at: ${GENESIS_TIME}
+  ip_address: ${NODE2_IP}
+  is_genesis_validator: true
+  node_name: validator-node-2
+  port: 18333
+  public_key: ${NODE2_PUBLIC_KEY}
+  stake: 100000
+network_id: playergold-testnet-genesis

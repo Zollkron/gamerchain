@@ -150,6 +150,10 @@ class P2PNetwork:
             asyncio.create_task(self._peer_cleanup_loop())
             
             self.running = True
+            
+            # Connect to bootstrap nodes
+            asyncio.create_task(self._connect_to_bootstrap_nodes())
+            
             logger.info(f"P2P network started successfully on port {self.listen_port}")
             
         except Exception as e:
@@ -588,6 +592,78 @@ class P2PNetwork:
             'active_connections': len(self.connections),
             'uptime': time.time() - (self.stats.get('start_time', time.time()))
         }
+
+    async def _connect_to_bootstrap_nodes(self):
+        """Connect to bootstrap nodes from network configuration"""
+        try:
+            # Get bootstrap nodes from network manager
+            network_config = self.network_manager.get_network_config()
+            bootstrap_nodes = getattr(network_config, 'bootstrap_nodes', [])
+            
+            if not bootstrap_nodes:
+                logger.warning("No bootstrap nodes configured")
+                return
+            
+            logger.info(f"Attempting to connect to {len(bootstrap_nodes)} bootstrap nodes...")
+            
+            # Wait a bit for server to be fully ready
+            await asyncio.sleep(2)
+            
+            successful_connections = 0
+            for node_address in bootstrap_nodes:
+                try:
+                    # Parse address (format: "ip:port")
+                    if ':' in node_address:
+                        ip, port_str = node_address.split(':')
+                        port = int(port_str)
+                    else:
+                        ip = node_address
+                        port = self.listen_port
+                    
+                    # Don't connect to ourselves
+                    if ip == '127.0.0.1' or ip == 'localhost':
+                        # Get our external IP to compare
+                        try:
+                            import socket
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                            sock.connect(("8.8.8.8", 80))
+                            our_ip = sock.getsockname()[0]
+                            sock.close()
+                            
+                            if ip == our_ip and port == self.listen_port:
+                                logger.debug(f"Skipping connection to self: {node_address}")
+                                continue
+                        except:
+                            pass
+                    
+                    logger.info(f"Attempting to connect to bootstrap node: {ip}:{port}")
+                    
+                    # Try to connect
+                    success = await self.connect_to_peer(ip, port)
+                    if success:
+                        successful_connections += 1
+                        logger.info(f"✅ Connected to bootstrap node {ip}:{port}")
+                    else:
+                        logger.warning(f"❌ Failed to connect to bootstrap node {ip}:{port}")
+                    
+                    # Small delay between connection attempts
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    logger.error(f"Error connecting to bootstrap node {node_address}: {e}")
+            
+            if successful_connections > 0:
+                logger.info(f"✅ Successfully connected to {successful_connections} bootstrap nodes")
+            else:
+                logger.warning("❌ Failed to connect to any bootstrap nodes")
+                
+                # Schedule retry in 30 seconds
+                logger.info("Scheduling bootstrap connection retry in 30 seconds...")
+                await asyncio.sleep(30)
+                asyncio.create_task(self._connect_to_bootstrap_nodes())
+                
+        except Exception as e:
+            logger.error(f"Error in bootstrap connection process: {e}")
 
 
 class MDNSService:
