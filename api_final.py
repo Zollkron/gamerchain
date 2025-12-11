@@ -118,17 +118,17 @@ def create_transaction():
 @app.route('/api/v1/faucet', methods=['POST'])
 def faucet():
     try:
-        print(f"🚰 Faucet request received")
+        print(f"FAUCET: Request received")
         data = request.get_json()
-        print(f"🚰 Request data: {data}")
+        print(f"FAUCET: Request data: {data}")
         
         if not data or 'address' not in data:
-            print(f"❌ Missing address in request")
+            print(f"ERROR: Missing address in request")
             return jsonify({'error': 'Dirección requerida'}), 400
         
         address = data['address']
         amount = float(data.get('amount', 1000))
-        print(f"🚰 Processing faucet: {amount} PRGLD to {address}")
+        print(f"FAUCET: Processing {amount} PRGLD to {address}")
         
         if address not in balances:
             balances[address] = 0
@@ -136,8 +136,8 @@ def faucet():
         
         tx_id = f"faucet_tx_{int(time.time())}_{hash(address) % 10000}"
         
-        print(f"✅ Faucet successful: {tx_id}")
-        print(f"💰 New balance for {address}: {balances[address]} PRGLD")
+        print(f"SUCCESS: Faucet successful: {tx_id}")
+        print(f"BALANCE: New balance for {address}: {balances[address]} PRGLD")
         
         return jsonify({
             'success': True,
@@ -148,7 +148,7 @@ def faucet():
         }), 201
         
     except Exception as e:
-        print(f"❌ Faucet error: {str(e)}")
+        print(f"ERROR: Faucet error: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -167,7 +167,7 @@ def network_status():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("🌐 API WALLET PLAYERGOLD - FUNCIONANDO")
+    print("API WALLET PLAYERGOLD - FUNCIONANDO")
     print("=" * 60)
     print("✅ Todos los endpoints operativos")
     print("💡 Puerto 18080 - Las wallets pueden conectarse")

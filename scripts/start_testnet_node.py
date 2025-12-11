@@ -106,7 +106,7 @@ async def start_testnet_node(node_id: str, port: int = None, config_file: str = 
         # Heartbeat received, peer is alive - no action needed
         pass
     
-    from src.p2p.message import MessageType
+    from src.p2p.network import MessageType
     p2p.register_message_handler(MessageType.HEARTBEAT, handle_heartbeat)
     
     # Initialize API REST
