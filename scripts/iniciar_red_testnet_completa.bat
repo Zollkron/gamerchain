@@ -1,6 +1,8 @@
 @echo off
 REM Script completo para iniciar la red testnet PlayerGold
 REM Configura firewall y inicia ambos nodos
+cd /d "%~dp0"
+cd ..
 
 echo ============================================================
 echo 🚀 INICIANDO RED TESTNET PLAYERGOLD COMPLETA
