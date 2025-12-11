@@ -45,6 +45,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateWalletName: (walletId, newName) => ipcRenderer.invoke('update-wallet-name', walletId, newName),
   deleteWallet: (walletId) => ipcRenderer.invoke('delete-wallet', walletId),
   
+  // Blockchain sync operations
+  initializeBlockchainServices: () => ipcRenderer.invoke('initialize-blockchain-services'),
+  stopBlockchainServices: () => ipcRenderer.invoke('stop-blockchain-services'),
+  getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
+  
   // Event listeners
   onMiningStatusChange: (callback) => {
     ipcRenderer.on('mining-status-change', callback);
@@ -54,5 +59,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onModelDownloadProgress: (callback) => {
     ipcRenderer.on('model-download-progress', callback);
     return () => ipcRenderer.removeListener('model-download-progress', callback);
+  },
+  
+  // Blockchain sync event listeners
+  onSyncStatus: (callback) => {
+    ipcRenderer.on('sync-status', (event, status) => callback(status));
+    return () => ipcRenderer.removeListener('sync-status', callback);
+  },
+  
+  onSyncStatusUpdate: (callback) => {
+    ipcRenderer.on('sync-status-update', (event, status) => callback(status));
+    return () => ipcRenderer.removeListener('sync-status-update', callback);
+  },
+  
+  onSyncReady: (callback) => {
+    ipcRenderer.on('sync-ready', () => callback());
+    return () => ipcRenderer.removeListener('sync-ready', callback);
+  },
+  
+  onSyncError: (callback) => {
+    ipcRenderer.on('sync-error', (event, error) => callback(error));
+    return () => ipcRenderer.removeListener('sync-error', callback);
   }
 });
