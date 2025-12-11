@@ -36,6 +36,9 @@ function createWindow() {
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    
+    // Set up blockchain sync events after window is ready
+    setupBlockchainSyncEvents();
   });
 
   // Open DevTools in development only
@@ -68,6 +71,84 @@ app.on('web-contents-created', (event, contents) => {
     event.preventDefault();
   });
 });
+
+// Blockchain sync service handlers
+ipcMain.handle('initialize-blockchain-services', async () => {
+  try {
+    const BlockchainSyncService = require('./services/BlockchainSyncService');
+    return await BlockchainSyncService.initialize();
+  } catch (error) {
+    console.error('Error initializing blockchain services:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('stop-blockchain-services', async () => {
+  try {
+    const BlockchainSyncService = require('./services/BlockchainSyncService');
+    return await BlockchainSyncService.stop();
+  } catch (error) {
+    console.error('Error stopping blockchain services:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-sync-status', async () => {
+  try {
+    const BlockchainSyncService = require('./services/BlockchainSyncService');
+    return BlockchainSyncService.getSyncStatus();
+  } catch (error) {
+    console.error('Error getting sync status:', error);
+    return {
+      isConnected: false,
+      isSyncing: false,
+      currentBlock: 0,
+      targetBlock: 0,
+      syncProgress: 0,
+      peers: 0
+    };
+  }
+});
+
+// Set up blockchain sync event forwarding
+const setupBlockchainSyncEvents = () => {
+  try {
+    const BlockchainSyncService = require('./services/BlockchainSyncService');
+    
+    BlockchainSyncService.on('status', (status) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('sync-status', status);
+      }
+    });
+    
+    BlockchainSyncService.on('syncStatusUpdate', (status) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('sync-status-update', status);
+      }
+    });
+    
+    BlockchainSyncService.on('ready', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('sync-ready');
+      }
+    });
+    
+    BlockchainSyncService.on('error', (error) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('sync-error', error);
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error setting up blockchain sync events:', error);
+  }
+};
 
 // IPC handlers for wallet operations
 ipcMain.handle('generate-wallet', async () => {

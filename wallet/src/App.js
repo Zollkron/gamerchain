@@ -2,15 +2,21 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import WalletSetup from './components/WalletSetup';
 import Dashboard from './components/Dashboard';
+import SyncProgress from './components/SyncProgress';
 
 function App() {
   const [wallets, setWallets] = useState([]);
   const [currentWallet, setCurrentWallet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(true);
+  const [syncError, setSyncError] = useState(null);
 
   useEffect(() => {
-    loadWallets();
-  }, []);
+    // Don't load wallets until sync is complete
+    if (!isSyncing) {
+      loadWallets();
+    }
+  }, [isSyncing]);
 
   const loadWallets = async () => {
     try {
@@ -87,6 +93,72 @@ function App() {
   const handleWalletsUpdate = () => {
     loadWallets();
   };
+
+  const handleSyncComplete = () => {
+    setIsSyncing(false);
+    setSyncError(null);
+  };
+
+  const handleSyncError = (error) => {
+    setSyncError(error);
+    setIsSyncing(false);
+  };
+
+  // Show sync progress first
+  if (isSyncing) {
+    return (
+      <div className="App">
+        <SyncProgress 
+          onSyncComplete={handleSyncComplete}
+          onError={handleSyncError}
+        />
+      </div>
+    );
+  }
+
+  // Show error if sync failed
+  if (syncError) {
+    return (
+      <div className="App">
+        <div className="loading-screen">
+          <h1>❌ Error de Conexión</h1>
+          <p>No se pudo conectar a la red blockchain</p>
+          <p style={{ fontSize: '0.9em', opacity: 0.8, marginTop: '20px' }}>
+            {syncError.message}
+          </p>
+          <button 
+            onClick={() => {
+              setSyncError(null);
+              setIsSyncing(true);
+            }}
+            style={{
+              marginTop: '20px',
+              padding: '10px 20px',
+              background: '#667eea',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If no wallets exist, show setup
+  if (wallets.length === 0) {
+    return (
+      <div className="App">
+        <WalletSetup 
+          onWalletCreated={handleWalletCreated}
+          onWalletImported={handleWalletImported}
+        />
+      </div>
+    );
+  }
 
   // Show Dashboard when wallets exist
   return (
