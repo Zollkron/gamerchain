@@ -95,7 +95,17 @@ class NetworkService {
    */
   async sendTransaction(transaction) {
     try {
-      const response = await axios.post(`${this.config.apiUrl}/api/v1/transaction`, transaction, {
+      // Convert transaction format to match API expectations
+      const apiTransaction = {
+        from_address: transaction.from,
+        to_address: transaction.to,
+        amount: transaction.amount,
+        fee: transaction.fee || 0.01,
+        memo: transaction.memo || '',
+        timestamp: transaction.timestamp
+      };
+
+      const response = await axios.post(`${this.config.apiUrl}/api/v1/transaction`, apiTransaction, {
         timeout: 15000,
         headers: {
           'Content-Type': 'application/json'
@@ -105,7 +115,7 @@ class NetworkService {
       return {
         success: true,
         transactionId: response.data.transactionId,
-        hash: response.data.hash,
+        hash: response.data.hash || response.data.transactionId,
         network: this.currentNetwork
       };
     } catch (error) {
@@ -113,7 +123,7 @@ class NetworkService {
       
       // Return mock transaction for development
       if (this.currentNetwork === 'testnet') {
-        const mockTxId = 'mock_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const mockTxId = 'mock_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
         return {
           success: true,
           transactionId: mockTxId,
@@ -158,24 +168,17 @@ class NetworkService {
       if (this.currentNetwork === 'testnet') {
         const mockTransactions = [
           {
-            id: 'mock_tx_1',
+            id: 'faucet_tx_initial',
             type: 'faucet_transfer',
             from: 'PGfaucet000000000000000000000000000000000',
             to: address,
             amount: '1000.0',
+            fee: '0.0',
             timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
             status: 'confirmed',
-            memo: 'Testnet faucet - 1000 PRGLD'
-          },
-          {
-            id: 'mock_tx_2',
-            type: 'genesis_allocation',
-            from: 'genesis',
-            to: address,
-            amount: '100.0',
-            timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-            status: 'confirmed',
-            memo: 'Genesis allocation'
+            memo: 'Testnet faucet - Initial 1000 PRGLD',
+            blockNumber: 1,
+            confirmations: 1
           }
         ];
         
@@ -275,7 +278,7 @@ class NetworkService {
       console.error('Error requesting faucet tokens:', error.message);
       
       // Return mock faucet response for development
-      const mockTxId = 'faucet_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const mockTxId = 'faucet_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
       return {
         success: true,
         transactionId: mockTxId,
