@@ -52,7 +52,7 @@ call npm run build
 
 REM Iniciar la aplicación Electron
 echo 🎮 Iniciando PlayerGold Wallet...
-call npm run electron
+call npm start
 
 echo.
 echo 🛑 PlayerGold Wallet cerrado
