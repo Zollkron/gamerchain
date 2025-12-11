@@ -14,19 +14,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   
   // AI Model operations
-  downloadModel: (modelId, onProgress) => ipcRenderer.invoke('download-model', modelId, onProgress),
-  verifyModelHash: (modelId, filePath) => ipcRenderer.invoke('verify-model-hash', modelId, filePath),
+  getCertifiedModels: () => ipcRenderer.invoke('get-certified-models'),
   getInstalledModels: () => ipcRenderer.invoke('get-installed-models'),
+  downloadModel: (modelId) => ipcRenderer.invoke('download-model', modelId),
   uninstallModel: (modelId) => ipcRenderer.invoke('uninstall-model', modelId),
+  checkSystemRequirements: (modelId) => ipcRenderer.invoke('check-system-requirements', modelId),
   
   // Mining operations
+  getMiningStatus: () => ipcRenderer.invoke('get-mining-status'),
+  checkMiningRequirements: () => ipcRenderer.invoke('check-mining-requirements'),
   startMining: (modelId, walletAddress) => ipcRenderer.invoke('start-mining', modelId, walletAddress),
   stopMining: () => ipcRenderer.invoke('stop-mining'),
-  getMiningStatus: () => ipcRenderer.invoke('get-mining-status'),
-  
-  // System information
-  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
-  checkSystemRequirements: () => ipcRenderer.invoke('check-system-requirements'),
+  getMiningStats: () => ipcRenderer.invoke('get-mining-stats'),
+  estimateMiningRewards: () => ipcRenderer.invoke('estimate-mining-rewards'),
   
   // Network operations
   getNetworkInfo: () => ipcRenderer.invoke('get-network-info'),

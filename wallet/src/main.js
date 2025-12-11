@@ -26,10 +26,8 @@ function createWindow() {
   if (isDev) {
     startUrl = 'http://localhost:3000';
   } else {
-    // In production, find the index.html in the app directory
-    const execPath = process.execPath;
-    const appDir = path.dirname(execPath);
-    const indexPath = path.join(appDir, 'index.html');
+    // In production, load from build directory
+    const indexPath = path.join(__dirname, '../build/index.html');
     startUrl = `file://${indexPath}`;
   }
   
@@ -274,6 +272,191 @@ ipcMain.handle('delete-wallet', async (event, walletId) => {
     return await WalletService.deleteWallet(walletId);
   } catch (error) {
     console.error('Error deleting wallet:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+// AI Model and Mining handlers
+ipcMain.handle('get-certified-models', async () => {
+  try {
+    const AIModelService = require('./services/AIModelService');
+    return {
+      success: true,
+      models: AIModelService.getCertifiedModels()
+    };
+  } catch (error) {
+    console.error('Error getting certified models:', error);
+    return {
+      success: false,
+      error: error.message,
+      models: []
+    };
+  }
+});
+
+ipcMain.handle('get-installed-models', async () => {
+  try {
+    const AIModelService = require('./services/AIModelService');
+    return {
+      success: true,
+      models: AIModelService.getInstalledModels()
+    };
+  } catch (error) {
+    console.error('Error getting installed models:', error);
+    return {
+      success: false,
+      error: error.message,
+      models: []
+    };
+  }
+});
+
+ipcMain.handle('download-model', async (event, modelId) => {
+  try {
+    const AIModelService = require('./services/AIModelService');
+    
+    const result = await AIModelService.downloadModel(modelId, (progress) => {
+      // Send progress updates to renderer
+      event.sender.send('model-download-progress', {
+        modelId,
+        ...progress
+      });
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error downloading model:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('uninstall-model', async (event, modelId) => {
+  try {
+    const AIModelService = require('./services/AIModelService');
+    return await AIModelService.uninstallModel(modelId);
+  } catch (error) {
+    console.error('Error uninstalling model:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('check-system-requirements', async (event, modelId) => {
+  try {
+    const AIModelService = require('./services/AIModelService');
+    return {
+      success: true,
+      requirements: AIModelService.checkSystemRequirements(modelId)
+    };
+  } catch (error) {
+    console.error('Error checking system requirements:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Mining handlers
+ipcMain.handle('get-mining-status', async () => {
+  try {
+    const MiningService = require('./services/MiningService');
+    return {
+      success: true,
+      status: MiningService.getMiningStatus()
+    };
+  } catch (error) {
+    console.error('Error getting mining status:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('check-mining-requirements', async () => {
+  try {
+    const MiningService = require('./services/MiningService');
+    return {
+      success: true,
+      requirements: await MiningService.checkMiningRequirements()
+    };
+  } catch (error) {
+    console.error('Error checking mining requirements:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('start-mining', async (event, modelId, walletAddress) => {
+  try {
+    const MiningService = require('./services/MiningService');
+    
+    // Set up status change listener
+    const unsubscribe = MiningService.onStatusChange((status) => {
+      event.sender.send('mining-status-change', status);
+    });
+    
+    // Store unsubscribe function for cleanup
+    event.sender.once('destroyed', unsubscribe);
+    
+    return await MiningService.startMining(modelId, walletAddress);
+  } catch (error) {
+    console.error('Error starting mining:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('stop-mining', async () => {
+  try {
+    const MiningService = require('./services/MiningService');
+    return await MiningService.stopMining();
+  } catch (error) {
+    console.error('Error stopping mining:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-mining-stats', async () => {
+  try {
+    const MiningService = require('./services/MiningService');
+    return {
+      success: true,
+      stats: MiningService.getMiningStats()
+    };
+  } catch (error) {
+    console.error('Error getting mining stats:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('estimate-mining-rewards', async () => {
+  try {
+    const MiningService = require('./services/MiningService');
+    return {
+      success: true,
+      rewards: MiningService.estimateMiningRewards()
+    };
+  } catch (error) {
+    console.error('Error estimating mining rewards:', error);
     return {
       success: false,
       error: error.message

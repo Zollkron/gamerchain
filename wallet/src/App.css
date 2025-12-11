@@ -1255,3 +1255,264 @@ body {
     max-width: 100%;
   }
 }
+/* Enhanced Mining Styles */
+.current-model {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: 10px;
+}
+
+.models-section {
+  margin-bottom: 30px;
+}
+
+.models-section h4 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+}
+
+.models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.model-card {
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+.model-card:hover {
+  border-color: #3498db;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.model-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.model-header h5 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.model-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.model-status.installed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.model-status.not-installed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.model-description {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.model-specs {
+  margin-bottom: 15px;
+}
+
+.model-specs small {
+  color: #adb5bd;
+  font-size: 12px;
+}
+
+.download-progress {
+  margin: 10px 0;
+}
+
+.download-progress .progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.download-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  transition: width 0.3s ease;
+}
+
+.model-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.download-model-button {
+  flex: 1;
+  padding: 10px 15px !important;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 !important;
+}
+
+.download-model-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(52, 152, 219, 0.4);
+}
+
+.download-model-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.select-model-button {
+  flex: 1;
+  padding: 10px 15px !important;
+  background: #6c757d !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 !important;
+}
+
+.select-model-button.selected {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%) !important;
+}
+
+.select-model-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+.select-model-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mining-rewards {
+  background: #f8f9fa;
+  padding: 25px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  margin-top: 25px;
+}
+
+.mining-rewards h4 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+}
+
+.rewards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.reward-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.reward-item span:first-child {
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.reward-item span:last-child {
+  font-weight: 700;
+  color: #27ae60;
+  font-size: 14px;
+}
+
+/* Enhanced Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.stat-item span:first-child {
+  font-weight: 600;
+  color: #495057;
+  font-size: 13px;
+}
+
+.stat-item span:last-child {
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+/* Responsive Design for Mining */
+@media (max-width: 768px) {
+  .models-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .rewards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .model-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .rewards-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .model-card {
+    padding: 15px;
+  }
+  
+  .mining-container {
+    padding: 20px;
+  }
+}

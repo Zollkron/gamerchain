@@ -1,90 +1,187 @@
-import aiModelService from './AIModelService';
+const AIModelService = require('./AIModelService');
+const NetworkService = require('./NetworkService');
 
 class MiningService {
   constructor() {
-    this.miningStatus = 'stopped';
+    this.isMining = false;
     this.currentModel = null;
-    this.nodeId = null;
-    this.startTime = null;
-    this.statusListeners = [];
-    this.metricsInterval = null;
+    this.miningStats = {
+      startTime: null,
+      blocksValidated: 0,
+      rewardsEarned: 0,
+      challengesProcessed: 0,
+      successRate: 100,
+      reputation: 100
+    };
+    this.miningInterval = null;
+    this.statusCallbacks = new Set();
   }
 
   /**
-   * Add status change listener
+   * Add status change callback
    */
-  addStatusListener(callback) {
-    this.statusListeners.push(callback);
+  onStatusChange(callback) {
+    this.statusCallbacks.add(callback);
+    return () => this.statusCallbacks.delete(callback);
   }
 
   /**
-   * Remove status change listener
+   * Notify status change
    */
-  removeStatusListener(callback) {
-    this.statusListeners = this.statusListeners.filter(cb => cb !== callback);
-  }
-
-  /**
-   * Notify all status listeners
-   */
-  notifyStatusChange(status, data = {}) {
-    this.statusListeners.forEach(callback => {
+  notifyStatusChange(status) {
+    this.statusCallbacks.forEach(callback => {
       try {
-        callback(status, data);
+        callback(status);
       } catch (error) {
-        console.error('Error in status listener:', error);
+        console.error('Error in mining status callback:', error);
       }
     });
   }
 
   /**
-   * Start mining with specified AI model
+   * Get current mining status
+   */
+  getMiningStatus() {
+    return {
+      isMining: this.isMining,
+      currentModel: this.currentModel,
+      stats: {
+        ...this.miningStats,
+        uptime: this.miningStats.startTime ? 
+          Date.now() - this.miningStats.startTime : 0
+      },
+      availableModels: AIModelService.getCertifiedModels(),
+      installedModels: AIModelService.getInstalledModels()
+    };
+  }
+
+  /**
+   * Check if system meets requirements for mining
+   */
+  async checkMiningRequirements() {
+    // Check network connectivity
+    const networkStatus = await NetworkService.getNetworkStatus();
+    if (!networkStatus.success) {
+      return {
+        canMine: false,
+        issues: ['No hay conexión con la red testnet'],
+        recommendations: [
+          'Verifica que los nodos testnet estén ejecutándose',
+          'Comprueba la conectividad de red'
+        ]
+      };
+    }
+
+    // Check if any models are installed
+    const installedModels = AIModelService.getInstalledModels();
+    if (installedModels.length === 0) {
+      return {
+        canMine: false,
+        issues: ['No hay modelos IA instalados'],
+        recommendations: [
+          'Descarga al menos un modelo IA certificado',
+          'Recomendamos Gemma 3 4B para hardware gaming'
+        ]
+      };
+    }
+
+    // Check system requirements (mock for now)
+    const systemCheck = this.checkSystemCapabilities();
+    if (!systemCheck.adequate) {
+      return {
+        canMine: false,
+        issues: systemCheck.issues,
+        recommendations: systemCheck.recommendations
+      };
+    }
+
+    return {
+      canMine: true,
+      installedModels: installedModels.length,
+      networkStatus: 'connected',
+      systemStatus: 'adequate'
+    };
+  }
+
+  /**
+   * Check system capabilities (mock implementation)
+   */
+  checkSystemCapabilities() {
+    // In a real implementation, this would check actual hardware
+    return {
+      adequate: true,
+      gpu: 'RTX 4070 - 12GB VRAM',
+      ram: '16GB available',
+      cpu: '8 cores available',
+      issues: [],
+      recommendations: []
+    };
+  }
+
+  /**
+   * Start mining with specified model
    */
   async startMining(modelId, walletAddress) {
-    if (this.miningStatus !== 'stopped') {
-      throw new Error('La minería ya está en progreso');
+    if (this.isMining) {
+      throw new Error('Mining is already active');
+    }
+
+    // Verify model is installed
+    if (!AIModelService.isModelInstalled(modelId)) {
+      throw new Error(`Model ${modelId} is not installed`);
+    }
+
+    // Check mining requirements
+    const requirements = await this.checkMiningRequirements();
+    if (!requirements.canMine) {
+      throw new Error(`Cannot start mining: ${requirements.issues.join(', ')}`);
     }
 
     try {
-      this.miningStatus = 'starting';
-      this.notifyStatusChange('starting', { modelId });
-
       // Load the AI model
-      const modelInfo = await aiModelService.loadModel(modelId);
-      
-      // Initialize mining node
-      const nodeInfo = await this.initializeMiningNode(modelId, walletAddress);
-      
-      // Connect to P2P network
-      await this.connectToNetwork(nodeInfo);
-      
-      // Start consensus participation
-      await this.startConsensusParticipation();
+      console.log(`Loading AI model: ${modelId}`);
+      const loadResult = await AIModelService.loadModel(modelId);
+      if (!loadResult.success) {
+        throw new Error(`Failed to load model: ${loadResult.error}`);
+      }
 
-      this.miningStatus = 'running';
-      this.currentModel = modelInfo;
-      this.nodeId = nodeInfo.nodeId;
-      this.startTime = new Date();
+      // Initialize mining state
+      this.isMining = true;
+      this.currentModel = {
+        id: modelId,
+        name: loadResult.name,
+        loadedAt: new Date().toISOString()
+      };
+      
+      this.miningStats = {
+        startTime: Date.now(),
+        blocksValidated: 0,
+        rewardsEarned: 0,
+        challengesProcessed: 0,
+        successRate: 100,
+        reputation: 100
+      };
 
-      // Start metrics collection
-      this.startMetricsCollection();
+      // Start mining loop
+      this.startMiningLoop(walletAddress);
 
-      this.notifyStatusChange('running', {
-        modelId,
-        nodeId: this.nodeId,
-        startTime: this.startTime
+      // Notify status change
+      this.notifyStatusChange({
+        event: 'mining_started',
+        model: this.currentModel,
+        walletAddress
       });
 
       return {
         success: true,
-        nodeId: this.nodeId,
-        model: modelInfo,
-        status: 'running'
+        message: `Mining started with ${loadResult.name}`,
+        model: this.currentModel
       };
 
     } catch (error) {
-      this.miningStatus = 'stopped';
-      this.notifyStatusChange('error', { error: error.message });
+      // Cleanup on error
+      this.isMining = false;
+      this.currentModel = null;
       throw error;
     }
   }
@@ -93,342 +190,172 @@ class MiningService {
    * Stop mining
    */
   async stopMining() {
-    if (this.miningStatus === 'stopped') {
-      return { success: true, message: 'La minería ya está detenida' };
+    if (!this.isMining) {
+      throw new Error('Mining is not active');
     }
 
-    try {
-      this.miningStatus = 'stopping';
-      this.notifyStatusChange('stopping');
-
-      // Stop metrics collection
-      this.stopMetricsCollection();
-
-      // Disconnect from consensus
-      await this.stopConsensusParticipation();
-
-      // Disconnect from P2P network
-      await this.disconnectFromNetwork();
-
-      // Unload AI model
-      if (this.currentModel) {
-        await aiModelService.unloadModel(this.currentModel.modelId);
-      }
-
-      // Reset state
-      this.miningStatus = 'stopped';
-      this.currentModel = null;
-      this.nodeId = null;
-      this.startTime = null;
-
-      this.notifyStatusChange('stopped');
-
-      return {
-        success: true,
-        message: 'Minería detenida correctamente'
-      };
-
-    } catch (error) {
-      this.notifyStatusChange('error', { error: error.message });
-      throw error;
+    // Stop mining loop
+    if (this.miningInterval) {
+      clearInterval(this.miningInterval);
+      this.miningInterval = null;
     }
-  }
 
-  /**
-   * Get current mining status
-   */
-  getMiningStatus() {
+    // Update state
+    const wasActive = this.isMining;
+    this.isMining = false;
+    const finalStats = { ...this.miningStats };
+    this.currentModel = null;
+
+    // Notify status change
+    this.notifyStatusChange({
+      event: 'mining_stopped',
+      finalStats
+    });
+
     return {
-      status: this.miningStatus,
-      model: this.currentModel,
-      nodeId: this.nodeId,
-      startTime: this.startTime,
-      uptime: this.startTime ? Date.now() - this.startTime.getTime() : 0
+      success: true,
+      message: 'Mining stopped successfully',
+      finalStats
     };
   }
 
   /**
-   * Initialize mining node
+   * Start the mining loop
    */
-  async initializeMiningNode(modelId, walletAddress) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate node initialization
-        const success = Math.random() > 0.15; // 85% success rate
-        
-        if (success) {
-          const nodeId = this.generateNodeId();
-          resolve({
-            nodeId,
-            modelId,
-            walletAddress,
-            initialized: true,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          reject(new Error('Error inicializando nodo IA. Verifica los requisitos del sistema.'));
-        }
-      }, 2000);
-    });
-  }
+  startMiningLoop(walletAddress) {
+    // Simulate mining activity every 10 seconds
+    this.miningInterval = setInterval(async () => {
+      if (!this.isMining) return;
 
-  /**
-   * Connect to P2P network
-   */
-  async connectToNetwork(nodeInfo) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate network connection
-        const success = Math.random() > 0.1; // 90% success rate
-        
-        if (success) {
-          resolve({
-            connected: true,
-            peers: Math.floor(Math.random() * 20) + 8, // 8-28 peers
-            networkId: 'playergold-mainnet',
-            latency: Math.floor(Math.random() * 100) + 20 // 20-120ms
-          });
-        } else {
-          reject(new Error('Error conectando a la red P2P. Verifica tu conexión a internet.'));
-        }
-      }, 1500);
-    });
-  }
-
-  /**
-   * Start consensus participation
-   */
-  async startConsensusParticipation() {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate consensus participation
-        const accepted = Math.random() > 0.2; // 80% acceptance rate
-        
-        if (accepted) {
-          resolve({
-            participating: true,
-            validatorStatus: 'active',
-            reputationScore: 75 + Math.random() * 20, // 75-95
-            challengesReceived: 0
-          });
-        } else {
-          reject(new Error('Nodo rechazado por la red. El modelo IA no pasó las pruebas de validación.'));
-        }
-      }, 1000);
-    });
-  }
-
-  /**
-   * Stop consensus participation
-   */
-  async stopConsensusParticipation() {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          participating: false,
-          validatorStatus: 'inactive',
-          finalStats: this.getFinalMiningStats()
-        });
-      }, 1000);
-    });
-  }
-
-  /**
-   * Disconnect from P2P network
-   */
-  async disconnectFromNetwork() {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          connected: false,
-          peers: 0,
-          disconnectedAt: new Date().toISOString()
-        });
-      }, 500);
-    });
-  }
-
-  /**
-   * Start metrics collection
-   */
-  startMetricsCollection() {
-    if (this.metricsInterval) {
-      clearInterval(this.metricsInterval);
-    }
-
-    this.metricsInterval = setInterval(() => {
-      if (this.miningStatus === 'running' && this.currentModel) {
-        const metrics = this.generateMiningMetrics();
-        this.notifyStatusChange('metrics', metrics);
+      try {
+        await this.processMiningCycle(walletAddress);
+      } catch (error) {
+        console.error('Error in mining cycle:', error);
+        // Continue mining despite errors
       }
-    }, 5000); // Update every 5 seconds
+    }, 10000); // 10 seconds per cycle
   }
 
   /**
-   * Stop metrics collection
+   * Process a single mining cycle
    */
-  stopMetricsCollection() {
-    if (this.metricsInterval) {
-      clearInterval(this.metricsInterval);
-      this.metricsInterval = null;
-    }
-  }
+  async processMiningCycle(walletAddress) {
+    if (!this.isMining || !this.currentModel) return;
 
-  /**
-   * Generate mining metrics
-   */
-  generateMiningMetrics() {
-    const uptime = this.startTime ? Date.now() - this.startTime.getTime() : 0;
-    const hours = uptime / (1000 * 60 * 60);
-    
-    return {
-      nodeId: this.nodeId,
-      status: 'validating',
-      uptime,
-      validationsCount: Math.floor(hours * 120) + Math.floor(Math.random() * 50), // ~120 per hour
-      reputationScore: 75 + Math.random() * 20 + (hours * 0.5), // Increases over time
-      peersConnected: 8 + Math.floor(Math.random() * 15),
-      lastChallenge: new Date(Date.now() - Math.random() * 300000), // Within last 5 minutes
-      earnings: {
-        today: hours * 1.2 + Math.random() * 0.5, // ~1.2 PRGLD per hour
-        total: this.getTotalEarnings() + (hours * 1.2)
-      },
-      performance: {
-        challengeSuccessRate: 95 + Math.random() * 5, // 95-100%
-        averageResponseTime: 45 + Math.random() * 25, // 45-70ms
-        networkLatency: 20 + Math.random() * 80, // 20-100ms
-        memoryUsage: 3.2 + Math.random() * 1.5, // GB
-        cpuUsage: 25 + Math.random() * 35, // 25-60%
-        gpuUsage: 65 + Math.random() * 25 // 65-90%
-      }
-    };
-  }
-
-  /**
-   * Get total earnings from localStorage
-   */
-  getTotalEarnings() {
     try {
-      const earnings = localStorage.getItem('totalMiningEarnings');
-      return earnings ? parseFloat(earnings) : 0;
-    } catch (error) {
-      return 0;
-    }
-  }
-
-  /**
-   * Update total earnings
-   */
-  updateTotalEarnings(amount) {
-    try {
-      const current = this.getTotalEarnings();
-      const updated = current + amount;
-      localStorage.setItem('totalMiningEarnings', updated.toString());
-      return updated;
-    } catch (error) {
-      console.error('Error updating earnings:', error);
-      return 0;
-    }
-  }
-
-  /**
-   * Get final mining statistics
-   */
-  getFinalMiningStats() {
-    if (!this.startTime) return null;
-
-    const uptime = Date.now() - this.startTime.getTime();
-    const hours = uptime / (1000 * 60 * 60);
-    const earnings = hours * 1.2; // Approximate earnings
-
-    // Update total earnings
-    this.updateTotalEarnings(earnings);
-
-    return {
-      sessionDuration: uptime,
-      validationsCompleted: Math.floor(hours * 120),
-      earningsThisSession: earnings,
-      averageReputationScore: 85 + Math.random() * 10,
-      challengeSuccessRate: 95 + Math.random() * 5,
-      networkContribution: 'Excellent'
-    };
-  }
-
-  /**
-   * Generate unique node ID
-   */
-  generateNodeId() {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 9);
-    return `node_${timestamp}_${random}`;
-  }
-
-  /**
-   * Get mining history
-   */
-  getMiningHistory() {
-    try {
-      const history = localStorage.getItem('miningHistory');
-      return history ? JSON.parse(history) : [];
-    } catch (error) {
-      return [];
-    }
-  }
-
-  /**
-   * Add mining session to history
-   */
-  addMiningSession(sessionData) {
-    try {
-      const history = this.getMiningHistory();
-      history.unshift({
-        ...sessionData,
-        id: Date.now(),
-        timestamp: new Date().toISOString()
-      });
-
-      // Keep only last 50 sessions
-      const trimmed = history.slice(0, 50);
-      localStorage.setItem('miningHistory', JSON.stringify(trimmed));
+      // Simulate receiving a challenge from the network
+      const challenge = this.generateMockChallenge();
       
-      return trimmed;
+      // Process challenge with AI
+      const result = await AIModelService.processChallenge(
+        this.currentModel.id, 
+        challenge
+      );
+
+      if (result.success) {
+        // Update stats
+        this.miningStats.challengesProcessed++;
+        
+        // Simulate occasional block validation (10% chance)
+        if (Math.random() < 0.1) {
+          this.miningStats.blocksValidated++;
+          this.miningStats.rewardsEarned += 10 + Math.random() * 5; // 10-15 PRGLD
+          
+          this.notifyStatusChange({
+            event: 'block_validated',
+            reward: 10 + Math.random() * 5,
+            blockNumber: this.miningStats.blocksValidated
+          });
+        }
+
+        // Update success rate
+        const successRate = (this.miningStats.challengesProcessed > 0) ?
+          (this.miningStats.challengesProcessed / this.miningStats.challengesProcessed) * 100 : 100;
+        this.miningStats.successRate = Math.min(successRate, 100);
+
+        // Notify challenge processed
+        this.notifyStatusChange({
+          event: 'challenge_processed',
+          challenge: challenge.id,
+          processingTime: result.solution.processingTime,
+          stats: this.miningStats
+        });
+
+      } else {
+        console.error('Failed to process challenge:', result.error);
+      }
+
     } catch (error) {
-      console.error('Error saving mining session:', error);
-      return [];
+      console.error('Error in mining cycle:', error);
     }
+  }
+
+  /**
+   * Generate mock challenge for testing
+   */
+  generateMockChallenge() {
+    return {
+      id: `challenge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'mathematical',
+      difficulty: 'medium',
+      data: {
+        problem: 'Solve mathematical optimization problem',
+        constraints: ['constraint1', 'constraint2'],
+        expectedTime: 200 // 200ms max
+      },
+      timestamp: new Date().toISOString()
+    };
   }
 
   /**
    * Get mining statistics
    */
-  getMiningStatistics() {
-    const history = this.getMiningHistory();
-    const totalEarnings = this.getTotalEarnings();
-    
-    if (history.length === 0) {
-      return {
-        totalSessions: 0,
-        totalUptime: 0,
-        totalEarnings: 0,
-        averageSessionDuration: 0,
-        totalValidations: 0,
-        averageSuccessRate: 0
-      };
-    }
-
-    const totalUptime = history.reduce((sum, session) => sum + (session.sessionDuration || 0), 0);
-    const totalValidations = history.reduce((sum, session) => sum + (session.validationsCompleted || 0), 0);
-    const averageSuccessRate = history.reduce((sum, session) => sum + (session.challengeSuccessRate || 0), 0) / history.length;
-
+  getMiningStats() {
     return {
-      totalSessions: history.length,
-      totalUptime,
-      totalEarnings,
-      averageSessionDuration: totalUptime / history.length,
-      totalValidations,
-      averageSuccessRate
+      ...this.miningStats,
+      uptime: this.miningStats.startTime ? 
+        Date.now() - this.miningStats.startTime : 0,
+      uptimeFormatted: this.formatUptime(
+        this.miningStats.startTime ? 
+        Date.now() - this.miningStats.startTime : 0
+      )
+    };
+  }
+
+  /**
+   * Format uptime in human readable format
+   */
+  formatUptime(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+
+    const h = hours % 24;
+    const m = minutes % 60;
+    const s = seconds % 60;
+
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Estimate mining rewards
+   */
+  estimateMiningRewards() {
+    // Mock estimation based on network conditions
+    return {
+      hourly: 5.2,
+      daily: 125,
+      weekly: 875,
+      monthly: 3750,
+      currency: 'PRGLD',
+      factors: [
+        'Network difficulty: Medium',
+        'Your model: Efficient',
+        'Hardware: Optimal',
+        'Network participation: High'
+      ]
     };
   }
 }
 
-export default new MiningService();
+module.exports = new MiningService();
