@@ -8,15 +8,49 @@ function App() {
   const [wallets, setWallets] = useState([]);
   const [currentWallet, setCurrentWallet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
   useEffect(() => {
-    // Don't load wallets until sync is complete
-    if (!isSyncing) {
-      loadWallets();
+    // Load wallets directly - no sync needed
+    loadWallets();
+    
+    // Initialize services in background without blocking UI
+    initializeServicesInBackground();
+  }, []);
+
+  const initializeServicesInBackground = async () => {
+    try {
+      // Start services in background without waiting
+      if (window.electronAPI && window.electronAPI.initializeBlockchainServices) {
+        window.electronAPI.initializeBlockchainServices().catch(console.error);
+      }
+    } catch (error) {
+      console.error('Error starting background services:', error);
     }
-  }, [isSyncing]);
+  };
+
+  const checkServicesAndLoadWallets = async () => {
+    try {
+      // Quick check if services are running
+      const response = await fetch('http://127.0.0.1:18080/api/v1/health', {
+        method: 'GET',
+        timeout: 3000
+      });
+      
+      if (response.ok) {
+        // Services are running, proceed to load wallets
+        setIsSyncing(false);
+        loadWallets();
+      } else {
+        // Services not responding
+        setSyncError(new Error('Servicios blockchain no disponibles'));
+      }
+    } catch (error) {
+      // Services not available
+      setSyncError(new Error('No se puede conectar a los servicios blockchain'));
+    }
+  };
 
   const loadWallets = async () => {
     try {
