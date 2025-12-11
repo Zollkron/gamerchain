@@ -73,6 +73,16 @@ class BlockchainSyncService extends EventEmitter {
    */
   async startServicesInBackground() {
     try {
+      // Check if external node is already running
+      const externalNodeRunning = await this.checkAllServicesRunning();
+      
+      if (externalNodeRunning) {
+        console.log('🌐 Using external blockchain node - skipping internal service startup');
+        return;
+      }
+      
+      console.log('🚀 Starting internal blockchain services...');
+      
       // Start P2P service
       this.startP2PService().catch(console.error);
       
@@ -91,16 +101,26 @@ class BlockchainSyncService extends EventEmitter {
    */
   async checkAllServicesRunning() {
     try {
-      // Check P2P service
-      const p2pRunning = await this.checkPortOpen(18333);
+      // Check API service (most important)
+      const response = await axios.get('http://127.0.0.1:18080/api/v1/health', { timeout: 3000 });
       
-      // Check API service
-      const apiRunning = await axios.get('http://127.0.0.1:18080/api/v1/health', { timeout: 3000 })
-        .then(() => true)
-        .catch(() => false);
+      if (response.status === 200) {
+        console.log('✅ External blockchain node detected:', response.data);
+        
+        // Check if it's our genesis node
+        if (response.data.node_id === 'genesis_node_1') {
+          console.log('🏗️  Genesis node detected - using external node');
+          return true;
+        }
+        
+        // Any other healthy API service
+        console.log('🌐 External API service detected - using external node');
+        return true;
+      }
       
-      return p2pRunning && apiRunning;
+      return false;
     } catch (error) {
+      console.log('🔍 No external blockchain node found, will start internal services');
       return false;
     }
   }

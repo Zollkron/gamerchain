@@ -257,6 +257,9 @@ class NetworkService {
     }
 
     try {
+      console.log(`🚰 Requesting faucet tokens: ${amount} PRGLD to ${address}`);
+      console.log(`🌐 API URL: ${this.config.apiUrl}/api/v1/faucet`);
+      
       const response = await axios.post(`${this.config.apiUrl}/api/v1/faucet`, {
         address: address,
         amount: amount
@@ -267,6 +270,8 @@ class NetworkService {
         }
       });
       
+      console.log(`✅ Faucet response:`, response.data);
+      
       return {
         success: true,
         transactionId: response.data.transactionId,
@@ -275,17 +280,14 @@ class NetworkService {
         message: `Requested ${amount} PRGLD from testnet faucet`
       };
     } catch (error) {
-      console.error('Error requesting faucet tokens:', error.message);
+      console.error('❌ Error requesting faucet tokens:', error.message);
+      console.error('❌ Error details:', error.response?.data || error);
       
-      // Return mock faucet response for development
-      const mockTxId = 'faucet_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+      // For now, let's propagate the error instead of returning mock
       return {
-        success: true,
-        transactionId: mockTxId,
-        amount: amount,
-        address: address,
-        message: `Mock faucet: ${amount} PRGLD sent to ${address}`,
-        mock: true
+        success: false,
+        error: `Faucet request failed: ${error.message}`,
+        details: error.response?.data || error.message
       };
     }
   }
@@ -322,6 +324,54 @@ class NetworkService {
    */
   getTransactionUrl(txId) {
     return `${this.config.explorerUrl}/tx/${txId}`;
+  }
+
+  /**
+   * Get mining statistics for an address
+   * @param {string} address - Address to get mining stats for
+   * @returns {Object} Mining statistics
+   */
+  async getMiningStats(address) {
+    try {
+      console.log(`📊 Getting mining stats for: ${address}`);
+      
+      const response = await axios.get(`${this.config.apiUrl}/api/v1/mining/stats/${address}`, {
+        timeout: 5000
+      });
+      
+      console.log(`✅ Mining stats response:`, response.data);
+      
+      return {
+        success: true,
+        mining_stats: response.data.mining_stats,
+        network: this.currentNetwork
+      };
+    } catch (error) {
+      console.error('❌ Error getting mining stats:', error.message);
+      
+      // Return mock stats for development
+      if (this.currentNetwork === 'testnet') {
+        return {
+          success: true,
+          mining_stats: {
+            blocks_validated: 0,
+            rewards_earned: 0,
+            challenges_processed: 0,
+            success_rate: 100.0,
+            reputation: 100.0,
+            is_mining: false,
+            last_reward: null
+          },
+          network: this.currentNetwork,
+          mock: true
+        };
+      }
+      
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   /**
