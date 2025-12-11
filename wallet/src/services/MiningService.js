@@ -187,6 +187,51 @@ class MiningService {
   }
 
   /**
+   * Update mining stats from real blockchain node
+   */
+  async updateRealMiningStats() {
+    try {
+      // Get current wallet address (we need this to query mining stats)
+      const WalletService = require('./WalletService');
+      const wallets = WalletService.store.get('wallets', []);
+      
+      if (wallets.length === 0) return;
+      
+      const currentWallet = wallets[0]; // Use first wallet for now
+      const address = currentWallet.address;
+      
+      // Query mining stats from genesis node
+      const response = await NetworkService.getMiningStats(address);
+      
+      if (response.success) {
+        const realStats = response.mining_stats;
+        const previousBlocks = this.miningStats.blocksValidated;
+        const previousRewards = this.miningStats.rewardsEarned;
+        
+        // Update stats with real data
+        this.miningStats.blocksValidated = realStats.blocks_validated;
+        this.miningStats.rewardsEarned = realStats.rewards_earned;
+        this.miningStats.challengesProcessed = realStats.challenges_processed;
+        this.miningStats.successRate = realStats.success_rate;
+        this.miningStats.reputation = realStats.reputation;
+        
+        // Notify if new blocks were validated
+        if (realStats.blocks_validated > previousBlocks) {
+          const newRewards = realStats.rewards_earned - previousRewards;
+          this.notifyStatusChange({
+            event: 'block_validated',
+            reward: newRewards,
+            blockNumber: realStats.blocks_validated,
+            realData: true
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating real mining stats:', error);
+    }
+  }
+
+  /**
    * Stop mining
    */
   async stopMining() {
@@ -256,17 +301,8 @@ class MiningService {
         // Update stats
         this.miningStats.challengesProcessed++;
         
-        // Simulate occasional block validation (10% chance)
-        if (Math.random() < 0.1) {
-          this.miningStats.blocksValidated++;
-          this.miningStats.rewardsEarned += 10 + Math.random() * 5; // 10-15 PRGLD
-          
-          this.notifyStatusChange({
-            event: 'block_validated',
-            reward: 10 + Math.random() * 5,
-            blockNumber: this.miningStats.blocksValidated
-          });
-        }
+        // Update real mining stats from blockchain node
+        await this.updateRealMiningStats();
 
         // Update success rate
         const successRate = (this.miningStats.challengesProcessed > 0) ?

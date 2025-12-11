@@ -7,12 +7,19 @@ import sys
 import os
 
 # Limpiar PYTHONPATH para evitar imports automáticos
-if '' in sys.path:
-    sys.path.remove('')
-if '.' in sys.path:
-    sys.path.remove('.')
-if os.getcwd() in sys.path:
-    sys.path.remove(os.getcwd())
+paths_to_remove = ['', '.', os.getcwd()]
+for p in paths_to_remove:
+    while p in sys.path:
+        sys.path.remove(p)
+
+# Limpiar cualquier módulo ya importado que pueda causar conflictos
+modules_to_remove = []
+for module_name in sys.modules.keys():
+    if module_name.startswith('src.') or module_name == 'src':
+        modules_to_remove.append(module_name)
+
+for module_name in modules_to_remove:
+    del sys.modules[module_name]
 
 from flask import Flask, jsonify, request
 from datetime import datetime
@@ -43,13 +50,17 @@ def get_balance(address):
         'timestamp': datetime.utcnow().isoformat()
     })
 
+# Transaction history storage
+transaction_history = {}
+
 @app.route('/api/v1/transactions/history/<address>', methods=['GET'])
 def get_transaction_history(address):
     current_time = time.time()
-    mock_transactions = []
+    transactions = transaction_history.get(address, [])
     
-    if address in balances:
-        mock_transactions.append({
+    # Add initial transaction if address has balance but no transactions
+    if address in balances and len(transactions) == 0:
+        initial_tx = {
             'id': f'faucet_tx_initial_{address[-8:]}',
             'type': 'faucet_transfer',
             'from': 'PGfaucet000000000000000000000000000000000',
@@ -61,13 +72,15 @@ def get_transaction_history(address):
             'memo': 'Testnet faucet - Initial 1000 PRGLD',
             'blockNumber': 1,
             'confirmations': 1
-        })
+        }
+        transactions.append(initial_tx)
+        transaction_history[address] = transactions
     
     return jsonify({
         'success': True,
         'address': address,
-        'transactions': mock_transactions,
-        'total': len(mock_transactions),
+        'transactions': transactions,
+        'total': len(transactions),
         'page': 1,
         'per_page': 20
     })
@@ -136,8 +149,29 @@ def faucet():
         
         tx_id = f"faucet_tx_{int(time.time())}_{hash(address) % 10000}"
         
+        # Register transaction in history
+        if address not in transaction_history:
+            transaction_history[address] = []
+        
+        faucet_transaction = {
+            'id': tx_id,
+            'type': 'faucet_transfer',
+            'from': 'PGfaucet000000000000000000000000000000000',
+            'to': address,
+            'amount': str(amount),
+            'fee': '0.0',
+            'timestamp': datetime.utcnow().isoformat(),
+            'status': 'confirmed',
+            'memo': f'Testnet faucet - {amount} PRGLD',
+            'blockNumber': len(transaction_history[address]) + 1,
+            'confirmations': 1
+        }
+        
+        transaction_history[address].append(faucet_transaction)
+        
         print(f"SUCCESS: Faucet successful: {tx_id}")
         print(f"BALANCE: New balance for {address}: {balances[address]} PRGLD")
+        print(f"TRANSACTION: Added to history: {tx_id}")
         
         return jsonify({
             'success': True,
@@ -145,11 +179,12 @@ def faucet():
             'amount': amount,
             'address': address,
             'message': f'Faucet: {amount} PRGLD enviados a {address}'
-        }), 201
+        }), 200
         
     except Exception as e:
         print(f"ERROR: Faucet error: {str(e)}")
         import traceback
+        print("TRACEBACK:")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
