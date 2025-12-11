@@ -607,7 +607,19 @@ class P2PNetwork:
             logger.info(f"Attempting to connect to {len(bootstrap_nodes)} bootstrap nodes...")
             
             # Wait a bit for server to be fully ready
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
+            
+            # Get our local IP to avoid connecting to ourselves
+            our_ip = None
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.connect(("8.8.8.8", 80))
+                our_ip = sock.getsockname()[0]
+                sock.close()
+                logger.info(f"Our local IP: {our_ip}")
+            except Exception as e:
+                logger.warning(f"Could not determine local IP: {e}")
             
             successful_connections = 0
             for node_address in bootstrap_nodes:
@@ -621,39 +633,44 @@ class P2PNetwork:
                         port = self.listen_port
                     
                     # Don't connect to ourselves
-                    if ip == '127.0.0.1' or ip == 'localhost':
-                        # Get our external IP to compare
-                        try:
-                            import socket
-                            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                            sock.connect(("8.8.8.8", 80))
-                            our_ip = sock.getsockname()[0]
-                            sock.close()
-                            
-                            if ip == our_ip and port == self.listen_port:
-                                logger.debug(f"Skipping connection to self: {node_address}")
-                                continue
-                        except:
-                            pass
+                    if our_ip and ip == our_ip and port == self.listen_port:
+                        logger.debug(f"Skipping connection to self: {node_address}")
+                        continue
+                    
+                    # Skip localhost addresses if we're not localhost
+                    if ip in ['127.0.0.1', 'localhost'] and our_ip and our_ip != '127.0.0.1':
+                        logger.debug(f"Skipping localhost address: {node_address}")
+                        continue
                     
                     logger.info(f"Attempting to connect to bootstrap node: {ip}:{port}")
                     
-                    # Try to connect
-                    success = await self.connect_to_peer(ip, port)
-                    if success:
-                        successful_connections += 1
-                        logger.info(f"✅ Connected to bootstrap node {ip}:{port}")
-                    else:
-                        logger.warning(f"❌ Failed to connect to bootstrap node {ip}:{port}")
+                    # Try to connect with timeout
+                    try:
+                        success = await asyncio.wait_for(
+                            self.connect_to_peer(ip, port), 
+                            timeout=10.0
+                        )
+                        if success:
+                            successful_connections += 1
+                            logger.info(f"✅ Connected to bootstrap node {ip}:{port}")
+                        else:
+                            logger.warning(f"❌ Failed to connect to bootstrap node {ip}:{port}")
+                    except asyncio.TimeoutError:
+                        logger.warning(f"⏰ Timeout connecting to bootstrap node {ip}:{port}")
                     
                     # Small delay between connection attempts
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
                     
                 except Exception as e:
                     logger.error(f"Error connecting to bootstrap node {node_address}: {e}")
             
             if successful_connections > 0:
                 logger.info(f"✅ Successfully connected to {successful_connections} bootstrap nodes")
+                
+                # Log current peer status
+                peer_count = self.get_peer_count()
+                logger.info(f"📊 Current network status: {peer_count} peers, {len(self.connections)} connections")
+                
             else:
                 logger.warning("❌ Failed to connect to any bootstrap nodes")
                 
