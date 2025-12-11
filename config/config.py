@@ -32,7 +32,7 @@ class AIConfig(BaseSettings):
         },
         description="Certified AI models with their SHA-256 hashes"
     )
-    challenge_timeout: float = Field(default=0.1, description="Challenge timeout in seconds")
+    challenge_timeout: float = Field(default=0.3, description="Challenge timeout in seconds")
     min_validators: int = Field(default=3, description="Minimum validators for consensus")
 
 

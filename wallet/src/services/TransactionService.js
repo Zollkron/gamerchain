@@ -1,122 +1,104 @@
-import crypto from 'crypto';
-import CryptoJS from 'crypto-js';
-import NetworkService from './NetworkService';
+const NetworkService = require('./NetworkService');
+const crypto = require('crypto');
 
-/**
- * TransactionService handles transaction creation, signing, and management
- * Integrates with NetworkService for blockchain communication
- */
 class TransactionService {
   constructor() {
     this.pendingTransactions = new Map();
-    this.transactionHistory = new Map();
-    
-    // Listen to network events
-    NetworkService.on('transactionSent', (txData) => {
-      this.handleTransactionSent(txData);
-    });
   }
 
   /**
-   * Create and send a transaction
-   * @param {Object} params - Transaction parameters
+   * Send a transaction
+   * @param {Object} txParams - Transaction parameters
    * @returns {Object} Transaction result
    */
-  async sendTransaction(params) {
-    const {
-      fromAddress,
-      toAddress,
-      amount,
-      privateKey,
-      transactionType = 'transfer',
-      memo = ''
-    } = params;
-
+  async sendTransaction(txParams) {
     try {
-      // Validate inputs
-      const validation = this.validateTransactionInputs(params);
-      if (!validation.valid) {
-        return {
-          success: false,
-          error: validation.error
-        };
+      const {
+        fromAddress,
+        toAddress,
+        amount,
+        privateKey,
+        transactionType = 'transfer',
+        memo = ''
+      } = txParams;
+
+      // Validate parameters
+      if (!fromAddress || !toAddress || !amount || !privateKey) {
+        throw new Error('Missing required transaction parameters');
       }
 
-      // Get current balance
-      const balanceResult = await NetworkService.getBalance(fromAddress);
-      if (!balanceResult.success) {
-        return {
-          success: false,
-          error: 'Failed to verify balance'
-        };
+      if (!NetworkService.isValidAddress(fromAddress) || !NetworkService.isValidAddress(toAddress)) {
+        throw new Error('Invalid address format');
       }
 
-      // Estimate fee
-      const feeEstimate = await NetworkService.estimateFee({
-        from: fromAddress,
-        to: toAddress,
-        amount: amount,
-        type: transactionType
-      });
-
-      if (!feeEstimate.success) {
-        return {
-          success: false,
-          error: 'Failed to estimate transaction fee'
-        };
-      }
-
-      const fee = feeEstimate.fee;
-      const totalRequired = parseFloat(amount) + parseFloat(fee);
-
-      // Check sufficient balance
-      if (parseFloat(balanceResult.balance) < totalRequired) {
-        return {
-          success: false,
-          error: `Insufficient balance. Required: ${totalRequired} PRGLD, Available: ${balanceResult.balance} PRGLD`
-        };
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        throw new Error('Invalid amount');
       }
 
       // Create transaction object
       const transaction = {
-        from_address: fromAddress,
-        to_address: toAddress,
-        amount: amount.toString(),
-        fee: fee.toString(),
-        timestamp: Date.now() / 1000,
-        transaction_type: transactionType,
-        nonce: await this.getNonce(fromAddress),
-        memo: memo
+        type: transactionType,
+        from: fromAddress,
+        to: toAddress,
+        amount: amountNum.toString(),
+        memo: memo,
+        timestamp: new Date().toISOString(),
+        nonce: this._generateNonce(),
+        networkId: NetworkService.getNetworkInfo().networkId
       };
 
-      // Calculate transaction hash
-      transaction.hash = this.calculateTransactionHash(transaction);
+      // Calculate fee (simplified)
+      transaction.fee = this._calculateFee(transaction);
 
       // Sign transaction
-      const signature = this.signTransaction(transaction, privateKey);
-      transaction.signature = signature;
+      transaction.signature = this._signTransaction(transaction, privateKey);
+
+      // Calculate transaction ID
+      transaction.id = this._calculateTransactionId(transaction);
+
+      // Add to pending transactions
+      this.pendingTransactions.set(transaction.id, {
+        ...transaction,
+        status: 'pending',
+        createdAt: Date.now()
+      });
 
       // Send to network
-      const sendResult = await NetworkService.sendTransaction(transaction);
-      
-      if (sendResult.success) {
-        // Store as pending transaction
-        this.addPendingTransaction({
-          ...transaction,
-          status: 'pending',
-          confirmations: 0,
-          sentAt: Date.now()
-        });
+      const result = await NetworkService.sendTransaction(transaction);
+
+      if (result.success) {
+        // Update pending transaction
+        if (this.pendingTransactions.has(transaction.id)) {
+          this.pendingTransactions.get(transaction.id).status = 'sent';
+          this.pendingTransactions.get(transaction.id).networkTxId = result.transactionId;
+        }
 
         return {
           success: true,
-          transactionHash: sendResult.transactionHash,
-          fee: fee,
-          estimatedConfirmationTime: sendResult.estimatedConfirmationTime
+          transactionId: transaction.id,
+          networkTransactionId: result.transactionId,
+          hash: result.hash,
+          amount: transaction.amount,
+          fee: transaction.fee,
+          from: transaction.from,
+          to: transaction.to,
+          memo: transaction.memo,
+          timestamp: transaction.timestamp
+        };
+      } else {
+        // Mark as failed
+        if (this.pendingTransactions.has(transaction.id)) {
+          this.pendingTransactions.get(transaction.id).status = 'failed';
+          this.pendingTransactions.get(transaction.id).error = result.error;
+        }
+
+        return {
+          success: false,
+          error: result.error,
+          transactionId: transaction.id
         };
       }
-
-      return sendResult;
 
     } catch (error) {
       return {
@@ -128,8 +110,8 @@ class TransactionService {
 
   /**
    * Get transaction history for an address
-   * @param {string} address - Wallet address
-   * @param {number} limit - Number of transactions to fetch
+   * @param {string} address - Address to get history for
+   * @param {number} limit - Number of transactions
    * @param {number} offset - Pagination offset
    * @returns {Object} Transaction history
    */
@@ -138,13 +120,32 @@ class TransactionService {
       const result = await NetworkService.getTransactionHistory(address, limit, offset);
       
       if (result.success) {
-        // Process and cache transactions
-        result.transactions.forEach(tx => {
-          this.cacheTransaction(address, tx);
-        });
+        // Process and format transactions
+        const transactions = result.transactions.map(tx => ({
+          id: tx.id,
+          type: tx.type,
+          from: tx.from,
+          to: tx.to,
+          amount: tx.amount,
+          fee: tx.fee || '0',
+          status: tx.status || 'confirmed',
+          timestamp: tx.timestamp,
+          memo: tx.memo || '',
+          blockNumber: tx.blockNumber,
+          confirmations: tx.confirmations || 0,
+          direction: this._getTransactionDirection(tx, address)
+        }));
+
+        return {
+          success: true,
+          transactions: transactions,
+          total: result.total,
+          address: address
+        };
+      } else {
+        return result;
       }
 
-      return result;
     } catch (error) {
       return {
         success: false,
@@ -156,39 +157,209 @@ class TransactionService {
 
   /**
    * Get pending transactions for an address
-   * @param {string} address - Wallet address
+   * @param {string} address - Address to check
    * @returns {Array} Pending transactions
    */
   getPendingTransactions(address) {
     const pending = [];
     
-    for (const [hash, tx] of this.pendingTransactions) {
-      if (tx.from_address === address || tx.to_address === address) {
-        pending.push(tx);
+    for (const [txId, tx] of this.pendingTransactions.entries()) {
+      if (tx.from === address || tx.to === address) {
+        pending.push({
+          id: txId,
+          type: tx.type,
+          from: tx.from,
+          to: tx.to,
+          amount: tx.amount,
+          fee: tx.fee,
+          status: tx.status,
+          timestamp: tx.timestamp,
+          memo: tx.memo,
+          direction: this._getTransactionDirection(tx, address),
+          createdAt: tx.createdAt
+        });
       }
     }
-    
-    return pending.sort((a, b) => b.sentAt - a.sentAt);
+
+    // Sort by creation time (newest first)
+    return pending.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**
-   * Get transaction details by hash
-   * @param {string} hash - Transaction hash
-   * @returns {Object} Transaction details
+   * Get transaction by ID
+   * @param {string} txId - Transaction ID
+   * @returns {Object|null} Transaction or null if not found
    */
-  async getTransactionDetails(hash) {
-    try {
-      // Check if it's a pending transaction first
-      if (this.pendingTransactions.has(hash)) {
-        return {
-          success: true,
-          transaction: this.pendingTransactions.get(hash)
-        };
-      }
+  getTransaction(txId) {
+    return this.pendingTransactions.get(txId) || null;
+  }
 
-      // Fetch from network
-      const result = await NetworkService.getTransaction(hash);
-      return result;
+  /**
+   * Clear old pending transactions
+   * @param {number} maxAge - Maximum age in milliseconds (default 1 hour)
+   */
+  clearOldPendingTransactions(maxAge = 3600000) {
+    const now = Date.now();
+    
+    for (const [txId, tx] of this.pendingTransactions.entries()) {
+      if (now - tx.createdAt > maxAge) {
+        this.pendingTransactions.delete(txId);
+      }
+    }
+  }
+
+  /**
+   * Generate transaction nonce
+   * @returns {number} Nonce
+   */
+  _generateNonce() {
+    return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  }
+
+  /**
+   * Calculate transaction fee
+   * @param {Object} transaction - Transaction object
+   * @returns {string} Fee amount
+   */
+  _calculateFee(transaction) {
+    // Simple fee calculation: base fee + amount-based fee
+    const baseFee = 0.01; // 0.01 PRGLD base fee
+    const amountFee = parseFloat(transaction.amount) * 0.001; // 0.1% of amount
+    const totalFee = baseFee + amountFee;
+    
+    // Minimum fee of 0.01 PRGLD
+    return Math.max(totalFee, 0.01).toFixed(8);
+  }
+
+  /**
+   * Sign transaction (simplified)
+   * @param {Object} transaction - Transaction to sign
+   * @param {string} privateKey - Private key for signing
+   * @returns {string} Signature
+   */
+  _signTransaction(transaction, privateKey) {
+    // Create transaction string for signing
+    const txString = JSON.stringify({
+      type: transaction.type,
+      from: transaction.from,
+      to: transaction.to,
+      amount: transaction.amount,
+      memo: transaction.memo,
+      timestamp: transaction.timestamp,
+      nonce: transaction.nonce,
+      fee: transaction.fee
+    }, Object.keys(transaction).sort());
+
+    // Create signature using HMAC-SHA256 (simplified)
+    const signature = crypto
+      .createHmac('sha256', privateKey)
+      .update(txString)
+      .digest('hex');
+
+    return signature;
+  }
+
+  /**
+   * Calculate transaction ID
+   * @param {Object} transaction - Transaction object
+   * @returns {string} Transaction ID
+   */
+  _calculateTransactionId(transaction) {
+    const txString = JSON.stringify({
+      type: transaction.type,
+      from: transaction.from,
+      to: transaction.to,
+      amount: transaction.amount,
+      memo: transaction.memo,
+      timestamp: transaction.timestamp,
+      nonce: transaction.nonce,
+      signature: transaction.signature
+    }, Object.keys(transaction).sort());
+
+    return crypto
+      .createHash('sha256')
+      .update(txString)
+      .digest('hex');
+  }
+
+  /**
+   * Determine transaction direction relative to an address
+   * @param {Object} transaction - Transaction object
+   * @param {string} address - Reference address
+   * @returns {string} 'sent', 'received', or 'self'
+   */
+  _getTransactionDirection(transaction, address) {
+    if (transaction.from === address && transaction.to === address) {
+      return 'self';
+    } else if (transaction.from === address) {
+      return 'sent';
+    } else if (transaction.to === address) {
+      return 'received';
+    }
+    return 'unknown';
+  }
+
+  /**
+   * Validate transaction parameters
+   * @param {Object} txParams - Transaction parameters
+   * @returns {Object} Validation result
+   */
+  validateTransactionParams(txParams) {
+    const errors = [];
+
+    if (!txParams.fromAddress) {
+      errors.push('From address is required');
+    } else if (!NetworkService.isValidAddress(txParams.fromAddress)) {
+      errors.push('Invalid from address format');
+    }
+
+    if (!txParams.toAddress) {
+      errors.push('To address is required');
+    } else if (!NetworkService.isValidAddress(txParams.toAddress)) {
+      errors.push('Invalid to address format');
+    }
+
+    if (!txParams.amount) {
+      errors.push('Amount is required');
+    } else {
+      const amount = parseFloat(txParams.amount);
+      if (isNaN(amount) || amount <= 0) {
+        errors.push('Amount must be a positive number');
+      }
+    }
+
+    if (!txParams.privateKey) {
+      errors.push('Private key is required for signing');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors: errors
+    };
+  }
+
+  /**
+   * Estimate transaction fee
+   * @param {Object} txParams - Transaction parameters
+   * @returns {string} Estimated fee
+   */
+  estimateFee(txParams) {
+    if (!txParams.amount) return '0.01';
+    
+    const amount = parseFloat(txParams.amount);
+    if (isNaN(amount)) return '0.01';
+    
+    return this._calculateFee({ amount: amount.toString() });
+  }
+
+  /**
+   * Get network statistics
+   * @returns {Object} Network stats
+   */
+  async getNetworkStats() {
+    try {
+      const status = await NetworkService.getNetworkStatus();
+      return status;
     } catch (error) {
       return {
         success: false,
@@ -196,240 +367,6 @@ class TransactionService {
       };
     }
   }
-
-  /**
-   * Validate transaction inputs
-   * @param {Object} params - Transaction parameters
-   * @returns {Object} Validation result
-   */
-  validateTransactionInputs(params) {
-    const { fromAddress, toAddress, amount, privateKey } = params;
-
-    if (!fromAddress || !toAddress || !amount || !privateKey) {
-      return {
-        valid: false,
-        error: 'Missing required transaction parameters'
-      };
-    }
-
-    if (fromAddress === toAddress) {
-      return {
-        valid: false,
-        error: 'Cannot send to the same address'
-      };
-    }
-
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      return {
-        valid: false,
-        error: 'Invalid amount'
-      };
-    }
-
-    if (!this.isValidAddress(fromAddress) || !this.isValidAddress(toAddress)) {
-      return {
-        valid: false,
-        error: 'Invalid address format'
-      };
-    }
-
-    return { valid: true };
-  }
-
-  /**
-   * Validate PlayerGold address format
-   * @param {string} address - Address to validate
-   * @returns {boolean} Is valid address
-   */
-  isValidAddress(address) {
-    // PlayerGold addresses start with 'PG' followed by 38 hex characters
-    const addressRegex = /^PG[0-9a-fA-F]{38}$/;
-    return addressRegex.test(address);
-  }
-
-  /**
-   * Calculate transaction hash
-   * @param {Object} transaction - Transaction object
-   * @returns {string} Transaction hash
-   */
-  calculateTransactionHash(transaction) {
-    const txData = {
-      from_address: transaction.from_address,
-      to_address: transaction.to_address,
-      amount: transaction.amount,
-      fee: transaction.fee,
-      timestamp: transaction.timestamp,
-      transaction_type: transaction.transaction_type,
-      nonce: transaction.nonce
-    };
-
-    const txString = JSON.stringify(txData, Object.keys(txData).sort());
-    return crypto.createHash('sha256').update(txString).digest('hex');
-  }
-
-  /**
-   * Sign transaction with private key
-   * @param {Object} transaction - Transaction to sign
-   * @param {string} privateKey - Private key for signing
-   * @returns {string} Transaction signature
-   */
-  signTransaction(transaction, privateKey) {
-    // Simplified signing - in production, use proper Ed25519 signing
-    const message = transaction.hash;
-    const signature = CryptoJS.HmacSHA256(message, privateKey).toString();
-    return signature;
-  }
-
-  /**
-   * Get next nonce for an address
-   * @param {string} address - Wallet address
-   * @returns {number} Next nonce
-   */
-  async getNonce(address) {
-    try {
-      // In a real implementation, this would fetch from the network
-      // For now, use timestamp-based nonce
-      return Date.now();
-    } catch (error) {
-      return Date.now();
-    }
-  }
-
-  /**
-   * Add pending transaction
-   * @param {Object} transaction - Transaction to add
-   */
-  addPendingTransaction(transaction) {
-    this.pendingTransactions.set(transaction.hash, transaction);
-    
-    // Auto-remove after 10 minutes if not confirmed
-    setTimeout(() => {
-      if (this.pendingTransactions.has(transaction.hash)) {
-        const tx = this.pendingTransactions.get(transaction.hash);
-        if (tx.status === 'pending') {
-          tx.status = 'timeout';
-        }
-      }
-    }, 10 * 60 * 1000);
-  }
-
-  /**
-   * Handle transaction sent event from network
-   * @param {Object} txData - Transaction data from network
-   */
-  handleTransactionSent(txData) {
-    if (this.pendingTransactions.has(txData.hash)) {
-      const tx = this.pendingTransactions.get(txData.hash);
-      tx.status = 'broadcast';
-      tx.broadcastAt = Date.now();
-    }
-  }
-
-  /**
-   * Update transaction confirmation status
-   * @param {string} hash - Transaction hash
-   * @param {number} confirmations - Number of confirmations
-   */
-  updateTransactionConfirmations(hash, confirmations) {
-    if (this.pendingTransactions.has(hash)) {
-      const tx = this.pendingTransactions.get(hash);
-      tx.confirmations = confirmations;
-      
-      if (confirmations >= 6) { // Consider confirmed after 6 blocks
-        tx.status = 'confirmed';
-        tx.confirmedAt = Date.now();
-        
-        // Move to history after confirmation
-        setTimeout(() => {
-          this.pendingTransactions.delete(hash);
-        }, 5000);
-      }
-    }
-  }
-
-  /**
-   * Cache transaction in local history
-   * @param {string} address - Wallet address
-   * @param {Object} transaction - Transaction to cache
-   */
-  cacheTransaction(address, transaction) {
-    if (!this.transactionHistory.has(address)) {
-      this.transactionHistory.set(address, []);
-    }
-    
-    const history = this.transactionHistory.get(address);
-    const existingIndex = history.findIndex(tx => tx.hash === transaction.hash);
-    
-    if (existingIndex >= 0) {
-      history[existingIndex] = transaction;
-    } else {
-      history.unshift(transaction);
-      
-      // Keep only last 100 transactions in cache
-      if (history.length > 100) {
-        history.splice(100);
-      }
-    }
-  }
-
-  /**
-   * Get cached transaction history
-   * @param {string} address - Wallet address
-   * @returns {Array} Cached transactions
-   */
-  getCachedHistory(address) {
-    return this.transactionHistory.get(address) || [];
-  }
-
-  /**
-   * Clear transaction cache
-   * @param {string} address - Wallet address (optional)
-   */
-  clearCache(address = null) {
-    if (address) {
-      this.transactionHistory.delete(address);
-    } else {
-      this.transactionHistory.clear();
-    }
-  }
-
-  /**
-   * Format amount for display
-   * @param {string|number} amount - Amount to format
-   * @returns {string} Formatted amount
-   */
-  formatAmount(amount) {
-    const num = parseFloat(amount);
-    if (isNaN(num)) return '0.00';
-    
-    return num.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 8
-    });
-  }
-
-  /**
-   * Get transaction status display text
-   * @param {Object} transaction - Transaction object
-   * @returns {string} Status text
-   */
-  getTransactionStatusText(transaction) {
-    switch (transaction.status) {
-      case 'pending':
-        return 'Pendiente';
-      case 'broadcast':
-        return 'Transmitida';
-      case 'confirmed':
-        return 'Confirmada';
-      case 'failed':
-        return 'Fallida';
-      case 'timeout':
-        return 'Tiempo agotado';
-      default:
-        return 'Desconocido';
-    }
-  }
 }
 
-export default new TransactionService();
+module.exports = new TransactionService();

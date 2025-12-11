@@ -141,7 +141,7 @@ class TestCrossValidator:
         solution_result = solution_processor.process_challenge(challenge)
         
         # Artificially set high computation time
-        solution_result.solution.computation_time_ms = 150.0  # Over 100ms limit
+        solution_result.solution.computation_time_ms = 350.0  # Over 300ms limit
         
         validation_result = self.cross_validator.validate_solution(
             challenge, 

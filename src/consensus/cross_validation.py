@@ -196,7 +196,7 @@ class CrossValidator:
                     validation_time_ms=(time.time() - start_time) * 1000,
                     validator_signature=self._create_validator_signature(validator_processor, "timing_anomaly"),
                     timestamp=time.time(),
-                    notes=f"Computation time {solution.computation_time_ms}ms exceeds 100ms limit"
+                    notes=f"Computation time {solution.computation_time_ms}ms exceeds 300ms limit"
                 )
             
             # Re-solve the challenge independently

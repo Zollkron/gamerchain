@@ -1,7 +1,7 @@
 """
 Tests for Challenge Generator
 
-Verifies that challenges are impossible for humans to solve in <100ms
+Verifies that challenges are impossible for humans to solve in <300ms
 and that AI nodes can solve them correctly.
 """
 
@@ -129,7 +129,7 @@ class TestMatrixOperationsGenerator:
         assert not self.generator.verify_solution(challenge, incorrect_solution)
     
     def test_human_impossibility_matrix(self):
-        """Test that matrix challenges are impossible for humans in <100ms"""
+        """Test that matrix challenges are impossible for humans in <300ms"""
         challenge = self.generator.generate(difficulty=3, seed=42)
         
         # Simulate human attempt (random guessing)
@@ -139,7 +139,7 @@ class TestMatrixOperationsGenerator:
         matrix_size = challenge.data['size']
         assert matrix_size >= 80, "Matrix should be large enough to be impossible for humans"
         
-        # Even reading the matrices would take more than 100ms for humans
+        # Even reading the matrices would take more than 300ms for humans
         matrix_elements = matrix_size * matrix_size * 2  # Two matrices
         assert matrix_elements > 1000, "Should have enough elements to be humanly impossible"
 
@@ -184,7 +184,7 @@ class TestPatternRecognitionGenerator:
         assert len(geom_pattern) == 5, "Geometric pattern should have correct length"
     
     def test_human_impossibility_pattern(self):
-        """Test that pattern challenges are impossible for humans in <100ms"""
+        """Test that pattern challenges are impossible for humans in <300ms"""
         challenge = self.generator.generate(difficulty=3, seed=42)
         
         sequence_length = len(challenge.data['sequence'])
@@ -194,7 +194,7 @@ class TestPatternRecognitionGenerator:
         assert sequence_length >= 160, "Sequence should be long enough"
         assert pattern_complexity >= 3, "Should have multiple overlapping patterns"
         
-        # Humans cannot analyze 160+ numbers and find multiple patterns in <100ms
+        # Humans cannot analyze 160+ numbers and find multiple patterns in <300ms
         assert sequence_length * pattern_complexity > 400, "Complexity should be humanly impossible"
 
 
@@ -235,7 +235,7 @@ class TestOptimizationGenerator:
         assert result >= 0, "Objective function should be non-negative"
     
     def test_human_impossibility_optimization(self):
-        """Test that optimization challenges are impossible for humans in <100ms"""
+        """Test that optimization challenges are impossible for humans in <300ms"""
         challenge = self.generator.generate(difficulty=3, seed=42)
         
         dimensions = challenge.data['dimensions']
@@ -245,13 +245,13 @@ class TestOptimizationGenerator:
         assert dimensions >= 25, "Should have many dimensions"
         assert num_centers >= 8, "Should have multiple local minima"
         
-        # Humans cannot solve 25+ dimensional optimization in <100ms
+        # Humans cannot solve 25+ dimensional optimization in <300ms
         complexity_factor = dimensions * num_centers
         assert complexity_factor >= 200, "Optimization should be humanly impossible"
 
 
 class TestHumanImpossibilityBenchmarks:
-    """Comprehensive tests to verify human impossibility within 100ms"""
+    """Comprehensive tests to verify human impossibility within 300ms"""
     
     def setup_method(self):
         self.generator = ChallengeGenerator()
@@ -266,18 +266,18 @@ class TestHumanImpossibilityBenchmarks:
             total_numbers = matrix_size * matrix_size * 2
             # Humans read ~3-5 numbers per second under pressure
             estimated_reading_time_ms = (total_numbers / 4) * 1000
-            assert estimated_reading_time_ms > 100, f"Reading {total_numbers} numbers should take >{estimated_reading_time_ms}ms"
+            assert estimated_reading_time_ms > 300, f"Reading {total_numbers} numbers should take >{estimated_reading_time_ms}ms"
         
         elif challenge.challenge_type == ChallengeType.PATTERN_RECOGNITION:
             sequence_length = len(challenge.data['sequence'])
             # Humans need ~50ms per number to process for patterns
             estimated_analysis_time_ms = sequence_length * 50
-            assert estimated_analysis_time_ms > 100, f"Analyzing {sequence_length} numbers should take >{estimated_analysis_time_ms}ms"
+            assert estimated_analysis_time_ms > 300, f"Analyzing {sequence_length} numbers should take >{estimated_analysis_time_ms}ms"
         
         elif challenge.challenge_type == ChallengeType.OPTIMIZATION:
             dimensions = challenge.data['dimensions']
             # Multi-dimensional optimization requires iterative computation
-            # Even one gradient calculation would take >100ms manually
+            # Even one gradient calculation would take >300ms manually
             assert dimensions > 20, f"Optimizing {dimensions} dimensions should be impossible manually"
     
     def test_computational_complexity(self):
@@ -311,7 +311,7 @@ class TestHumanImpossibilityBenchmarks:
                 )
                 
                 # Verify challenge has sufficient complexity
-                assert challenge.timeout_ms == 100, "Timeout should be 100ms"
+                assert challenge.timeout_ms == 300, "Timeout should be 300ms"
                 assert challenge.difficulty_level == difficulty
                 
                 # Each challenge type should have specific complexity markers

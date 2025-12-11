@@ -341,7 +341,7 @@ class AttackDefenseSystem:
             response_times = behavior_data['response_times']
             if response_times:
                 avg_time = sum(response_times) / len(response_times)
-                if avg_time > 100:  # More than 100ms average
+                if avg_time > 300:  # More than 300ms average
                     anomaly_score += 0.3
         
         # Check for validation failures

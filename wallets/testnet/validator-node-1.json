@@ -1,0 +1,12 @@
+{
+  "node_name": "validator-node-1",
+  "address": "PG5745a6f30d517e8c11d82c85fb1d0098760a22",
+  "ip_address": "192.168.1.129",
+  "port": 18333,
+  "stake": 100000,
+  "is_genesis_validator": true,
+  "public_key": "pub_407c8b4b9c4c4ffa6ea35babd10e3012",
+  "created_at": "2025-12-11T02:03:51.956594",
+  "private_key": "407c8b4b9c4c4ffa6ea35babd10e301292f6317c4d69e924ca4bdce99c96239c",
+  "mnemonic": "testnet genesis validator validator-node-1 seed phrase for development only"
+}

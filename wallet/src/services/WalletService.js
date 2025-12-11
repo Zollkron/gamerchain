@@ -4,8 +4,8 @@ const HDKey = require('hdkey');
 const secp256k1 = require('secp256k1');
 const Store = require('electron-store');
 const CryptoJS = require('crypto-js');
-// const NetworkService = require('./NetworkService');
-// const TransactionService = require('./TransactionService');
+const NetworkService = require('./NetworkService');
+const TransactionService = require('./TransactionService');
 
 class WalletService {
   constructor() {
@@ -297,14 +297,15 @@ class WalletService {
         throw new Error('Wallet not found');
       }
 
-      // TODO: Implement NetworkService.getBalance
-      // const balanceResult = await NetworkService.getBalance(wallet.address);
+      const balanceResult = await NetworkService.getBalance(wallet.address);
       
-      // For now, return cached balance
-      return {
-        success: true,
-        balance: wallet.balance || '0'
-      };
+      if (balanceResult.success) {
+        // Update cached balance
+        wallet.balance = balanceResult.balance;
+        this.store.set('wallets', wallets);
+      }
+
+      return balanceResult;
     } catch (error) {
       return {
         success: false,
@@ -345,13 +346,10 @@ class WalletService {
         memo: transactionData.memo || ''
       };
 
-      // TODO: Implement TransactionService.sendTransaction
-      // const result = await TransactionService.sendTransaction(txParams);
+      // Send transaction through TransactionService
+      const result = await TransactionService.sendTransaction(txParams);
       
-      return {
-        success: false,
-        error: 'Transaction functionality not yet implemented'
-      };
+      return result;
     } catch (error) {
       return {
         success: false,
@@ -376,17 +374,13 @@ class WalletService {
         throw new Error('Wallet not found');
       }
 
-      // TODO: Implement TransactionService.getTransactionHistory
-      // const result = await TransactionService.getTransactionHistory(
-      //   wallet.address, 
-      //   limit, 
-      //   offset
-      // );
+      const result = await TransactionService.getTransactionHistory(
+        wallet.address, 
+        limit, 
+        offset
+      );
       
-      return {
-        success: true,
-        transactions: []
-      };
+      return result;
     } catch (error) {
       return {
         success: false,
@@ -410,8 +404,7 @@ class WalletService {
         return [];
       }
 
-      // TODO: Implement TransactionService.getPendingTransactions
-      return [];
+      return TransactionService.getPendingTransactions(wallet.address);
     } catch (error) {
       return [];
     }
@@ -435,6 +428,68 @@ class WalletService {
         balance: balanceResult.balance || '0',
         recentTransactions: historyResult.transactions || [],
         syncedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Request tokens from testnet faucet
+   * @param {string} walletId - Wallet ID
+   * @param {number} amount - Amount to request (default 1000)
+   * @returns {Object} Faucet result
+   */
+  async requestFaucetTokens(walletId, amount = 1000) {
+    try {
+      const wallets = this.store.get('wallets', []);
+      const wallet = wallets.find(w => w.id === walletId);
+      
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      const result = await NetworkService.requestFaucetTokens(wallet.address, amount);
+      
+      if (result.success) {
+        // Refresh balance after faucet request
+        setTimeout(() => {
+          this.getWalletBalance(walletId);
+        }, 5000); // Wait 5 seconds then refresh
+      }
+      
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get network information
+   * @returns {Object} Network info
+   */
+  getNetworkInfo() {
+    return NetworkService.getNetworkInfo();
+  }
+
+  /**
+   * Switch network (testnet/mainnet)
+   * @param {string} network - 'testnet' or 'mainnet'
+   * @returns {Object} Switch result
+   */
+  switchNetwork(network) {
+    try {
+      NetworkService.switchNetwork(network);
+      return {
+        success: true,
+        network: network,
+        networkInfo: NetworkService.getNetworkInfo()
       };
     } catch (error) {
       return {

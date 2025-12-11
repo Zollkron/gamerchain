@@ -21,7 +21,7 @@ class TestInfrastructure:
         # Test default values
         assert config.environment == "development"
         assert config.network.p2p_port == 8333
-        assert config.ai.challenge_timeout == 0.1
+        assert config.ai.challenge_timeout == 0.3
         assert config.blockchain.reward_distribution["ai_nodes"] == 0.9
         assert config.blockchain.fee_distribution["burn"] == 0.8
     
