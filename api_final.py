@@ -118,19 +118,26 @@ def create_transaction():
 @app.route('/api/v1/faucet', methods=['POST'])
 def faucet():
     try:
+        print(f"🚰 Faucet request received")
         data = request.get_json()
+        print(f"🚰 Request data: {data}")
         
         if not data or 'address' not in data:
+            print(f"❌ Missing address in request")
             return jsonify({'error': 'Dirección requerida'}), 400
         
         address = data['address']
         amount = float(data.get('amount', 1000))
+        print(f"🚰 Processing faucet: {amount} PRGLD to {address}")
         
         if address not in balances:
             balances[address] = 0
         balances[address] += amount
         
         tx_id = f"faucet_tx_{int(time.time())}_{hash(address) % 10000}"
+        
+        print(f"✅ Faucet successful: {tx_id}")
+        print(f"💰 New balance for {address}: {balances[address]} PRGLD")
         
         return jsonify({
             'success': True,
@@ -141,6 +148,9 @@ def faucet():
         }), 201
         
     except Exception as e:
+        print(f"❌ Faucet error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/v1/network/status', methods=['GET'])
