@@ -28,6 +28,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   checkSystemRequirements: () => ipcRenderer.invoke('check-system-requirements'),
   
+  // Network operations
+  getNetworkInfo: () => ipcRenderer.invoke('get-network-info'),
+  switchNetwork: (network) => ipcRenderer.invoke('switch-network', network),
+  requestFaucetTokens: (walletId, amount) => ipcRenderer.invoke('request-faucet-tokens', walletId, amount),
+  getWalletBalance: (walletId) => ipcRenderer.invoke('get-wallet-balance', walletId),
+  syncWallet: (walletId) => ipcRenderer.invoke('sync-wallet', walletId),
+  getNetworkStatus: () => ipcRenderer.invoke('get-network-status'),
+  
+  // Transaction operations
+  sendTransaction: (walletId, transactionData) => ipcRenderer.invoke('send-transaction', walletId, transactionData),
+  getTransactionHistory: (walletId, limit, offset) => ipcRenderer.invoke('get-transaction-history', walletId, limit, offset),
+  getPendingTransactions: (walletId) => ipcRenderer.invoke('get-pending-transactions', walletId),
+  
+  // Wallet management
+  updateWalletName: (walletId, newName) => ipcRenderer.invoke('update-wallet-name', walletId, newName),
+  deleteWallet: (walletId) => ipcRenderer.invoke('delete-wallet', walletId),
+  
   // Event listeners
   onMiningStatusChange: (callback) => {
     ipcRenderer.on('mining-status-change', callback);

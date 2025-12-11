@@ -2,7 +2,7 @@
 Challenge Generator for PoAIP Consensus
 
 This module generates mathematical challenges that require AI capabilities
-and are impossible for humans to solve in under 100ms.
+and are impossible for humans to solve in under 300ms.
 """
 
 import hashlib

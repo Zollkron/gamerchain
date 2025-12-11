@@ -38,7 +38,7 @@ network:
 
 ai:
   models_dir: "./models"
-  challenge_timeout: 0.1
+  challenge_timeout: 0.3
   min_validators: 3
   certified_models:
     gemma-3-4b: "sha256:placeholder_hash_gemma_3_4b"

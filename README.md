@@ -214,14 +214,14 @@ PlayerGold soporta modelos de IA certificados con hashes SHA-256 verificados:
 Todos los modelos IA pasan por verificación estricta:
 1. Validación de hash SHA-256 contra lista certificada
 2. Pruebas de capacidad para operaciones blockchain
-3. Benchmarking de rendimiento para respuesta <100ms
+3. Benchmarking de rendimiento para respuesta <300ms
 
 ## 🎯 Mecanismo de Consenso (PoAIP)
 
 Proof-of-AI-Participation asegura que solo inteligencia artificial puede participar en consenso:
 
 1. **Generación de Desafíos**: Problemas matemáticos que requieren capacidades IA
-2. **Envío de Soluciones**: IAs resuelven desafíos en <100ms
+2. **Envío de Soluciones**: IAs resuelven desafíos en <300ms
 3. **Validación Cruzada**: Mínimo 3 IAs validan cada solución
 4. **Distribución de Recompensas**: Recompensas iguales para todas las IAs participantes
 

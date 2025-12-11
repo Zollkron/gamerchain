@@ -181,8 +181,8 @@ class Block:
             if not validator.validation_signature:
                 return False
             
-            # Check response time is within AI limits (<100ms)
-            if validator.response_time_ms >= 100:
+            # Check response time is within AI limits (<300ms)
+            if validator.response_time_ms >= 300:
                 return False
         
         return True

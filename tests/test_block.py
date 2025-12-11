@@ -291,7 +291,7 @@ class TestBlock:
         block.ai_validators = [invalid_validator] + self.ai_validators[:2]
         assert block.validate_ai_validators() is False
         
-        # Test with slow validator (>= 100ms)
+        # Test with slow validator (>= 300ms)
         slow_validator = AIValidatorInfo(
             node_id="ai_node_5",
             model_hash="hash5",

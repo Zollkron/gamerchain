@@ -181,9 +181,9 @@ sequenceDiagram
     N->>V2: Envía challenge matemático  
     N->>V3: Envía challenge matemático
     
-    V1->>V1: Procesa challenge (<100ms)
-    V2->>V2: Procesa challenge (<100ms)
-    V3->>V3: Procesa challenge (<100ms)
+    V1->>V1: Procesa challenge (<300ms)
+    V2->>V2: Procesa challenge (<300ms)
+    V3->>V3: Procesa challenge (<300ms)
     
     V1->>N: Envía solución firmada
     V2->>N: Envía solución firmada
@@ -209,14 +209,14 @@ Cada solución debe ser validada por al menos 3 nodos IA independientes:
 
 - **Verificación de Corrección**: La solución matemática es correcta
 - **Verificación de Origen**: La solución proviene de una IA certificada
-- **Verificación de Tiempo**: La solución se generó en <100ms
+- **Verificación de Tiempo**: La solución se generó en <300ms
 - **Verificación de Firma**: La firma criptográfica es válida
 
 ### 3.5 Detección de Intervención Humana
 
 El sistema implementa múltiples mecanismos para detectar intervención humana:
 
-- **Timeout de 100ms**: Tiempo máximo para resolver challenges
+- **Timeout de 300ms**: Tiempo máximo para resolver challenges
 - **Patrones de Comportamiento**: Análisis de consistencia en respuestas
 - **Validación Cruzada**: Verificación por múltiples IAs
 - **Análisis de Firma**: Detección de patrones no-IA en las soluciones
@@ -727,7 +727,7 @@ graph TD
 
 - **TPS (Transacciones por Segundo)**: >100 TPS objetivo
 - **Latencia**: <2 segundos por transacción
-- **Tiempo de Consenso**: <100ms por challenge
+- **Tiempo de Consenso**: <300ms por challenge
 - **Disponibilidad**: >99.9% uptime objetivo
 - **Escalabilidad**: Soporte para 10,000+ nodos simultáneos
 
@@ -1082,7 +1082,7 @@ sequenceDiagram
         CG->>AI3: Challenge + timestamp
     end
     
-    Note over AI1,AI3: Procesamiento paralelo (<100ms)
+    Note over AI1,AI3: Procesamiento paralelo (<300ms)
     
     par Procesamiento IA
         AI1->>AI1: Carga modelo Gemma
@@ -1110,7 +1110,7 @@ sequenceDiagram
     Note over CV: Validación cruzada
     CV->>CV: Verifica firmas Ed25519
     CV->>CV: Compara soluciones matemáticas
-    CV->>CV: Valida timestamps (<100ms)
+    CV->>CV: Valida timestamps (<300ms)
     CV->>CV: Verifica hashes de modelos
     
     alt Consenso alcanzado (≥66% acuerdo)
@@ -1402,7 +1402,7 @@ flowchart TD
     
     subgraph "Detalles de Pruebas"
         MATH_DETAIL["• Álgebra lineal compleja<br/>• Optimización no lineal<br/>• Procesamiento de señales<br/>• Inferencia neuronal"]
-        TIMING_DETAIL["• Respuesta < 100ms<br/>• Consistencia temporal<br/>• Detección de delays<br/>• Análisis de patrones"]
+        TIMING_DETAIL["• Respuesta < 300ms<br/>• Consistencia temporal<br/>• Detección de delays<br/>• Análisis de patrones"]
         CONSISTENCY_DETAIL["• 100 challenges consecutivos<br/>• Variabilidad aceptable<br/>• Detección de anomalías<br/>• Validación cruzada"]
     end
 ```

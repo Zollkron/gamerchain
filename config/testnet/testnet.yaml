@@ -1,0 +1,26 @@
+block_time: 10
+consensus:
+  min_validators: 2
+  quorum_percentage: 0.66
+  type: PoAIP
+faucet_amount: 1000
+genesis_time: '2025-12-11T02:03:51.956594'
+initial_supply: 1000000
+initial_validators:
+- address: PG5745a6f30d517e8c11d82c85fb1d0098760a22
+  created_at: '2025-12-11T02:03:51.956594'
+  ip_address: 192.168.1.129
+  is_genesis_validator: true
+  node_name: validator-node-1
+  port: 18333
+  public_key: pub_407c8b4b9c4c4ffa6ea35babd10e3012
+  stake: 100000
+- address: PGc7e5fd6bd3d80eead6a828e32b2cbb27497997
+  created_at: '2025-12-11T02:03:51.956594'
+  ip_address: 192.168.1.132
+  is_genesis_validator: true
+  node_name: validator-node-2
+  port: 18333
+  public_key: pub_2a79d83a8b347e6934581210bf64bee9
+  stake: 100000
+network_id: playergold-testnet-genesis

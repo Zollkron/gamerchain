@@ -163,7 +163,7 @@ python -m pytest tests/test_p2p_network.py tests/test_p2p_synchronization.py -v
 
 ## Performance Characteristics
 
-- **Message Latency**: < 100ms for local network propagation
+- **Message Latency**: < 300ms for global network propagation
 - **Throughput**: Supports > 100 TPS transaction propagation
 - **Scalability**: Tested with up to 50 concurrent peers
 - **Memory Usage**: Efficient caching with configurable limits
