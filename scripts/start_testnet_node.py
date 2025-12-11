@@ -99,6 +99,16 @@ async def start_testnet_node(node_id: str, port: int = None, config_file: str = 
         network_manager=network_manager
     )
     
+    # Register HEARTBEAT handler
+    async def handle_heartbeat(message):
+        """Handle heartbeat messages from peers"""
+        logger.debug(f"Received heartbeat from {message.sender_id}")
+        # Heartbeat received, peer is alive - no action needed
+        pass
+    
+    from src.p2p.message import MessageType
+    p2p.register_message_handler(MessageType.HEARTBEAT, handle_heartbeat)
+    
     # Initialize API REST
     logger.info("Initializing REST API...")
     api = GameAPI(blockchain)
