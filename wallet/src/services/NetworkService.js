@@ -4,9 +4,9 @@ class NetworkService {
   constructor() {
     // Testnet configuration
     this.testnetConfig = {
-      apiUrl: 'http://localhost:18080',  // Local testnet API
+      apiUrl: 'http://127.0.0.1:18080',  // Local testnet API (IPv4 explicit)
       networkId: 'playergold-testnet-genesis',
-      explorerUrl: 'http://localhost:18080/explorer'
+      explorerUrl: 'http://127.0.0.1:18080/explorer'
     };
     
     // Mainnet configuration (for future use)
@@ -56,7 +56,7 @@ class NetworkService {
    */
   async getBalance(address) {
     try {
-      const response = await axios.get(`${this.config.apiUrl}/api/balance/${address}`, {
+      const response = await axios.get(`${this.config.apiUrl}/api/v1/balance/${address}`, {
         timeout: 10000
       });
       
@@ -95,7 +95,7 @@ class NetworkService {
    */
   async sendTransaction(transaction) {
     try {
-      const response = await axios.post(`${this.config.apiUrl}/api/transaction`, transaction, {
+      const response = await axios.post(`${this.config.apiUrl}/api/v1/transaction`, transaction, {
         timeout: 15000,
         headers: {
           'Content-Type': 'application/json'
@@ -139,7 +139,7 @@ class NetworkService {
    */
   async getTransactionHistory(address, limit = 50, offset = 0) {
     try {
-      const response = await axios.get(`${this.config.apiUrl}/api/transactions/${address}`, {
+      const response = await axios.get(`${this.config.apiUrl}/api/v1/transactions/history/${address}`, {
         params: { limit, offset },
         timeout: 10000
       });
@@ -203,7 +203,7 @@ class NetworkService {
    */
   async getNetworkStatus() {
     try {
-      const response = await axios.get(`${this.config.apiUrl}/api/status`, {
+      const response = await axios.get(`${this.config.apiUrl}/api/v1/network/status`, {
         timeout: 5000
       });
       
@@ -254,7 +254,7 @@ class NetworkService {
     }
 
     try {
-      const response = await axios.post(`${this.config.apiUrl}/api/faucet`, {
+      const response = await axios.post(`${this.config.apiUrl}/api/v1/faucet`, {
         address: address,
         amount: amount
       }, {
