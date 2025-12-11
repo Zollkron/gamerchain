@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-API REST para wallets PlayerGold - Testnet
+API REST para wallets PlayerGold - Testnet (Versión Corregida)
 """
 
 from flask import Flask, jsonify, request
@@ -28,7 +28,7 @@ blockchain_data = {
     'pending_transactions': 0
 }
 
-# Mock balances
+# Mock balances - cada dirección empieza con 1000 PRGLD
 balances = {}
 
 @app.route('/api/v1/health', methods=['GET'])
@@ -56,8 +56,8 @@ def network_status():
 @app.route('/api/v1/balance/<address>', methods=['GET'])
 @limiter.limit("120 per minute")
 def get_balance(address):
-    # Return mock balance for testnet
-    balance = balances.get(address, 1000.0)  # Default 1000 PRGLD for testnet
+    # Return balance for testnet (default 1000 PRGLD for new addresses)
+    balance = balances.get(address, 1000.0)
     
     return jsonify({
         'success': True,
@@ -70,11 +70,14 @@ def get_balance(address):
 @app.route('/api/v1/transactions/history/<address>', methods=['GET'])
 @limiter.limit("60 per minute")
 def get_transaction_history(address):
-    # Mock transaction history
+    # Mock transaction history - solo si la dirección ha usado el faucet
     current_time = time.time()
-    mock_transactions = [
-        {
-            'id': 'faucet_tx_initial',
+    mock_transactions = []
+    
+    # Si la dirección tiene balance, mostrar transacción de faucet inicial
+    if address in balances:
+        mock_transactions.append({
+            'id': f'faucet_tx_initial_{address[-8:]}',
             'type': 'faucet_transfer',
             'from': 'PGfaucet000000000000000000000000000000000',
             'to': address,
@@ -85,8 +88,7 @@ def get_transaction_history(address):
             'memo': 'Testnet faucet - Initial 1000 PRGLD',
             'blockNumber': 1,
             'confirmations': 1
-        }
-    ]
+        })
     
     return jsonify({
         'success': True,
@@ -100,31 +102,31 @@ def get_transaction_history(address):
 @app.route('/api/v1/transaction', methods=['POST'])
 @limiter.limit("60 per minute")
 def create_transaction():
-    data = request.get_json()
-    
-    if not data or not all(field in data for field in ['from_address', 'to_address', 'amount']):
-        return jsonify({'error': 'Campos requeridos: from_address, to_address, amount'}), 400
-    
     try:
-        # Validate amount
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        if not data or not all(field in data for field in ['from_address', 'to_address', 'amount']):
+            return jsonify({'error': 'Campos requeridos: from_address, to_address, amount'}), 400
+        
+        # Validar amount
         amount = float(data['amount'])
         if amount <= 0:
             return jsonify({'error': 'Amount must be positive'}), 400
         
-        # Mock transaction creation
-        tx_id = f"mock_tx_{int(time.time())}_{hash(str(data)) % 10000}"
-        
-        # Update mock balances
         from_addr = data['from_address']
         to_addr = data['to_address']
         fee = float(data.get('fee', 0.01))
         
-        # Check if sender has enough balance
+        # Verificar balance del remitente
         sender_balance = balances.get(from_addr, 1000.0)  # Default testnet balance
         if sender_balance < (amount + fee):
             return jsonify({'error': 'Insufficient balance'}), 400
         
-        # Update balances
+        # Crear ID de transacción
+        tx_id = f"tx_{int(time.time())}_{hash(str(data)) % 10000}"
+        
+        # Actualizar balances
         balances[from_addr] = sender_balance - amount - fee
         if to_addr not in balances:
             balances[to_addr] = 0
@@ -134,7 +136,7 @@ def create_transaction():
             'success': True,
             'transactionId': tx_id,
             'hash': tx_id,
-            'status': 'pending',
+            'status': 'confirmed',
             'message': 'Transacción creada exitosamente',
             'amount': amount,
             'fee': fee,
@@ -151,32 +153,36 @@ def create_transaction():
 @app.route('/api/v1/faucet', methods=['POST'])
 @limiter.limit("10 per hour")
 def faucet():
-    data = request.get_json()
-    
-    if not data or 'address' not in data:
-        return jsonify({'error': 'Dirección requerida'}), 400
-    
-    address = data['address']
-    amount = float(data.get('amount', 1000))
-    
-    # Add to balance
-    if address not in balances:
-        balances[address] = 0
-    balances[address] += amount
-    
-    tx_id = f"faucet_tx_{int(time.time())}_{hash(address) % 10000}"
-    
-    return jsonify({
-        'success': True,
-        'transactionId': tx_id,
-        'amount': amount,
-        'address': address,
-        'message': f'Faucet: {amount} PRGLD enviados a {address}'
-    }), 201
+    try:
+        data = request.get_json()
+        
+        if not data or 'address' not in data:
+            return jsonify({'error': 'Dirección requerida'}), 400
+        
+        address = data['address']
+        amount = float(data.get('amount', 1000))
+        
+        # Agregar al balance
+        if address not in balances:
+            balances[address] = 0
+        balances[address] += amount
+        
+        tx_id = f"faucet_tx_{int(time.time())}_{hash(address) % 10000}"
+        
+        return jsonify({
+            'success': True,
+            'transactionId': tx_id,
+            'amount': amount,
+            'address': address,
+            'message': f'Faucet: {amount} PRGLD enviados a {address}'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("🌐 INICIANDO API WALLET PLAYERGOLD")
+    print("🌐 INICIANDO API WALLET PLAYERGOLD (CORREGIDA)")
     print("=" * 60)
     print()
     print("✅ API Wallet lista!")
