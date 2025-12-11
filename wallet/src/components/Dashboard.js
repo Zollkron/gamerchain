@@ -18,16 +18,54 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [miningStatus, setMiningStatus] = useState({
     isActive: false,
     selectedModel: '',
-    downloadProgress: 0,
-    isDownloading: false
+    currentModel: null,
+    stats: {
+      blocksValidated: 0,
+      rewardsEarned: 0,
+      challengesProcessed: 0,
+      successRate: 100,
+      uptime: 0,
+      reputation: 100
+    }
   });
+  
+  const [availableModels, setAvailableModels] = useState([]);
+  const [downloadProgress, setDownloadProgress] = useState({});
+  const [miningRewards, setMiningRewards] = useState(null);
 
   // Load wallet data on mount and wallet change
   useEffect(() => {
     if (wallet) {
       loadWalletData();
+      loadMiningData();
     }
   }, [wallet]);
+
+  // Set up mining status listeners
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    const handleMiningStatusChange = (status) => {
+      console.log('Mining status change:', status);
+      loadMiningData(); // Refresh mining data
+    };
+
+    const handleModelDownloadProgress = (progress) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [progress.modelId]: progress
+      }));
+    };
+
+    // Set up listeners
+    const unsubscribeMining = window.electronAPI.onMiningStatusChange?.(handleMiningStatusChange);
+    const unsubscribeDownload = window.electronAPI.onModelDownloadProgress?.(handleModelDownloadProgress);
+
+    return () => {
+      if (unsubscribeMining) unsubscribeMining();
+      if (unsubscribeDownload) unsubscribeDownload();
+    };
+  }, []);
 
   const loadWalletData = async () => {
     if (!wallet || !window.electronAPI) return;
@@ -98,6 +136,91 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
         setTimeout(() => loadWalletData(), 3000); // Refresh after 3 seconds
       } else {
         alert(`Error al solicitar tokens: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMiningData = async () => {
+    if (!window.electronAPI) return;
+    
+    try {
+      // Load mining status
+      const statusResult = await window.electronAPI.getMiningStatus();
+      if (statusResult.success) {
+        setMiningStatus({
+          isActive: statusResult.status.isMining,
+          selectedModel: statusResult.status.currentModel?.id || '',
+          currentModel: statusResult.status.currentModel,
+          stats: statusResult.status.stats
+        });
+      }
+      
+      // Load available models
+      const modelsResult = await window.electronAPI.getCertifiedModels();
+      if (modelsResult.success) {
+        setAvailableModels(modelsResult.models);
+      }
+      
+      // Load mining rewards estimation
+      const rewardsResult = await window.electronAPI.estimateMiningRewards();
+      if (rewardsResult.success) {
+        setMiningRewards(rewardsResult.rewards);
+      }
+    } catch (error) {
+      console.error('Error loading mining data:', error);
+    }
+  };
+
+  const handleDownloadModel = async (modelId) => {
+    if (!window.electronAPI) return;
+    
+    try {
+      const result = await window.electronAPI.downloadModel(modelId);
+      if (result.success) {
+        alert(`¡Modelo descargado exitosamente!\n${result.message}`);
+        loadMiningData(); // Refresh mining data
+      } else {
+        alert(`Error al descargar modelo: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const handleStartMining = async () => {
+    if (!window.electronAPI || !wallet || !miningStatus.selectedModel) return;
+    
+    setIsLoading(true);
+    try {
+      const result = await window.electronAPI.startMining(miningStatus.selectedModel, wallet.address);
+      if (result.success) {
+        alert(`¡Minería iniciada exitosamente!\nModelo: ${result.model.name}`);
+        loadMiningData(); // Refresh mining data
+      } else {
+        alert(`Error al iniciar minería: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStopMining = async () => {
+    if (!window.electronAPI) return;
+    
+    setIsLoading(true);
+    try {
+      const result = await window.electronAPI.stopMining();
+      if (result.success) {
+        alert(`Minería detenida exitosamente!`);
+        loadMiningData(); // Refresh mining data
+      } else {
+        alert(`Error al detener minería: ${result.error}`);
       }
     } catch (error) {
       alert(`Error: ${error.message}`);
@@ -371,6 +494,9 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
                 <div className="status-indicator">
                   <span className={`status-dot ${miningStatus.isActive ? 'active' : 'inactive'}`}></span>
                   <span>{miningStatus.isActive ? 'Minando Activo' : 'Minado Inactivo'}</span>
+                  {miningStatus.currentModel && (
+                    <span className="current-model">con {miningStatus.currentModel.name}</span>
+                  )}
                 </div>
               </div>
               
@@ -384,50 +510,74 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
                 </ul>
               </div>
               
-              <div className="model-selection">
-                <h4>Seleccionar Modelo IA</h4>
-                <select 
-                  value={miningStatus.selectedModel}
-                  onChange={(e) => setMiningStatus({...miningStatus, selectedModel: e.target.value})}
-                  disabled={miningStatus.isActive}
-                >
-                  <option value="">Seleccionar modelo...</option>
-                  <option value="gemma-3-4b">Gemma 3 4B (Recomendado)</option>
-                  <option value="mistral-3b">Mistral 3B</option>
-                  <option value="qwen-3-4b">Qwen 3 4B</option>
-                </select>
-              </div>
-              
-              {miningStatus.isDownloading && (
-                <div className="download-progress">
-                  <h4>Descargando Modelo IA...</h4>
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{width: `${miningStatus.downloadProgress}%`}}
-                    ></div>
-                  </div>
-                  <p>{miningStatus.downloadProgress}% completado</p>
+              <div className="models-section">
+                <h4>Modelos IA Disponibles</h4>
+                <div className="models-grid">
+                  {availableModels.map(model => (
+                    <div key={model.id} className="model-card">
+                      <div className="model-header">
+                        <h5>{model.name}</h5>
+                        <span className={`model-status ${model.isInstalled ? 'installed' : 'not-installed'}`}>
+                          {model.isInstalled ? '✅ Instalado' : '📥 No instalado'}
+                        </span>
+                      </div>
+                      <p className="model-description">{model.description}</p>
+                      <div className="model-specs">
+                        <small>Tamaño: {model.size} | VRAM: {model.requirements.vram}</small>
+                      </div>
+                      
+                      {downloadProgress[model.id] && (
+                        <div className="download-progress">
+                          <div className="progress-bar">
+                            <div 
+                              className="progress-fill" 
+                              style={{width: `${downloadProgress[model.id].progress}%`}}
+                            ></div>
+                          </div>
+                          <small>{downloadProgress[model.id].progress}% descargado</small>
+                        </div>
+                      )}
+                      
+                      <div className="model-actions">
+                        {!model.isInstalled ? (
+                          <button 
+                            className="download-model-button"
+                            onClick={() => handleDownloadModel(model.id)}
+                            disabled={downloadProgress[model.id]?.status === 'downloading'}
+                          >
+                            {downloadProgress[model.id]?.status === 'downloading' ? 'Descargando...' : '📥 Descargar'}
+                          </button>
+                        ) : (
+                          <button 
+                            className={`select-model-button ${miningStatus.selectedModel === model.id ? 'selected' : ''}`}
+                            onClick={() => setMiningStatus({...miningStatus, selectedModel: model.id})}
+                            disabled={miningStatus.isActive}
+                          >
+                            {miningStatus.selectedModel === model.id ? '✅ Seleccionado' : 'Seleccionar'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
               
               <div className="mining-controls">
                 {!miningStatus.isActive ? (
                   <button 
                     className="start-mining-button"
-                    disabled={!miningStatus.selectedModel || miningStatus.isDownloading}
-                    onClick={() => {
-                      alert('Funcionalidad de minería en desarrollo.\nSe integrará con los nodos IA del testnet.');
-                    }}
+                    disabled={!miningStatus.selectedModel || isLoading}
+                    onClick={handleStartMining}
                   >
-                    🚀 Iniciar Minería
+                    {isLoading ? 'Iniciando...' : '🚀 Iniciar Minería'}
                   </button>
                 ) : (
                   <button 
                     className="stop-mining-button"
-                    onClick={() => setMiningStatus({...miningStatus, isActive: false})}
+                    onClick={handleStopMining}
+                    disabled={isLoading}
                   >
-                    ⏹️ Detener Minería
+                    {isLoading ? 'Deteniendo...' : '⏹️ Detener Minería'}
                   </button>
                 )}
               </div>
@@ -437,22 +587,54 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
                 <div className="stats-grid">
                   <div className="stat-item">
                     <span>Bloques Validados:</span>
-                    <span>0</span>
+                    <span>{miningStatus.stats.blocksValidated}</span>
                   </div>
                   <div className="stat-item">
                     <span>Recompensas Ganadas:</span>
-                    <span>0.00 PRGLD</span>
+                    <span>{miningStatus.stats.rewardsEarned.toFixed(2)} PRGLD</span>
+                  </div>
+                  <div className="stat-item">
+                    <span>Challenges Procesados:</span>
+                    <span>{miningStatus.stats.challengesProcessed}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span>Tasa de Éxito:</span>
+                    <span>{miningStatus.stats.successRate.toFixed(1)}%</span>
                   </div>
                   <div className="stat-item">
                     <span>Tiempo Activo:</span>
-                    <span>00:00:00</span>
+                    <span>{miningStatus.stats.uptimeFormatted || '00:00:00'}</span>
                   </div>
                   <div className="stat-item">
                     <span>Reputación:</span>
-                    <span>100%</span>
+                    <span>{miningStatus.stats.reputation}%</span>
                   </div>
                 </div>
               </div>
+              
+              {miningRewards && (
+                <div className="mining-rewards">
+                  <h4>Estimación de Recompensas</h4>
+                  <div className="rewards-grid">
+                    <div className="reward-item">
+                      <span>Por Hora:</span>
+                      <span>{miningRewards.hourly} PRGLD</span>
+                    </div>
+                    <div className="reward-item">
+                      <span>Por Día:</span>
+                      <span>{miningRewards.daily} PRGLD</span>
+                    </div>
+                    <div className="reward-item">
+                      <span>Por Semana:</span>
+                      <span>{miningRewards.weekly} PRGLD</span>
+                    </div>
+                    <div className="reward-item">
+                      <span>Por Mes:</span>
+                      <span>{miningRewards.monthly} PRGLD</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
