@@ -13,7 +13,7 @@ Supports:
 import hashlib
 import json
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, asdict
 from decimal import Decimal
 import logging
@@ -102,10 +102,18 @@ class EnhancedBlockchain:
         self.burn_address: Optional[str] = None
         self.developer_address: Optional[str] = None
         
-        # Fee distribution percentages
-        self.developer_fee_percentage = Decimal('0.30')  # 30%
-        self.liquidity_fee_percentage = Decimal('0.10')  # 10%
-        self.burn_fee_percentage = Decimal('0.60')  # 60%
+        # Fee distribution percentages (will be updated by halving events)
+        self._fee_percentages = {
+            'developer': Decimal('0.30'),  # 30%
+            'liquidity': Decimal('0.10'),  # 10%
+            'burn': Decimal('0.60')  # 60%
+        }
+        
+        # Reference to halving fee manager (will be set by consensus)
+        self.halving_fee_manager: Optional['HalvingFeeManager'] = None
+        
+        # Voluntary burn manager
+        self.voluntary_burn_manager: Optional['VoluntaryBurnManager'] = None
         
         # Create empty genesis block (will be replaced by bootstrap manager)
         self.create_empty_genesis_block()
@@ -233,6 +241,37 @@ class EnhancedBlockchain:
                 logger.debug(f"Token burn: {transaction.amount} PRGLD burned")
                 return True
             
+            elif transaction.transaction_type == "VOLUNTARY_BURN":
+                # Voluntary token burn - remove from circulation and update reputation
+                if not self.voluntary_burn_manager:
+                    logger.warning("⚠️ Voluntary burn attempted but no burn manager configured")
+                    return False
+                
+                # Deduct tokens from user's balance
+                if self.get_balance(transaction.from_address) < transaction.amount:
+                    logger.warning(f"❌ Insufficient balance for voluntary burn: {transaction.from_address}")
+                    return False
+                
+                # Remove tokens from user's balance
+                self.update_balance(transaction.from_address, -transaction.amount)
+                
+                # Add to burn address (remove from circulation)
+                self.update_balance(transaction.to_address, transaction.amount)
+                
+                # Process voluntary burn and update reputation
+                success = self.voluntary_burn_manager.process_voluntary_burn(
+                    transaction.from_address, 
+                    transaction.amount, 
+                    transaction.hash
+                )
+                
+                if success:
+                    logger.info(f"🔥 Voluntary burn: {transaction.amount} PRGLD by {transaction.from_address}")
+                else:
+                    logger.error(f"❌ Failed to process voluntary burn reputation")
+                
+                return success
+            
             elif transaction.transaction_type == "LIQUIDITY_POOL":
                 # Add to liquidity pool
                 self.update_balance(transaction.to_address, transaction.amount)
@@ -264,15 +303,18 @@ class EnhancedBlockchain:
             return False
 
     def distribute_transaction_fee(self, total_fee: Decimal):
-        """Distribute transaction fee according to the 30/10/60 split"""
+        """Distribute transaction fee using current halving-adjusted percentages"""
         if not self.developer_address or not self.liquidity_pool_address or not self.burn_address:
             logger.warning("System addresses not configured, skipping fee distribution")
             return
         
+        # Get current percentages (updated by halving events)
+        current_percentages = self.get_current_fee_percentages()
+        
         # Calculate distribution amounts
-        developer_amount = total_fee * self.developer_fee_percentage
-        liquidity_amount = total_fee * self.liquidity_fee_percentage
-        burn_amount = total_fee * self.burn_fee_percentage
+        developer_amount = total_fee * current_percentages['developer']
+        liquidity_amount = total_fee * current_percentages['liquidity']
+        burn_amount = total_fee * current_percentages['burn']
         
         # Distribute fees
         self.update_balance(self.developer_address, developer_amount)
@@ -280,6 +322,105 @@ class EnhancedBlockchain:
         self.update_balance(self.burn_address, burn_amount)
         
         logger.debug(f"Fee distributed: {developer_amount} (dev) + {liquidity_amount} (pool) + {burn_amount} (burn)")
+        logger.debug(f"Current percentages: Dev: {current_percentages['developer']*100}%, "
+                    f"Pool: {current_percentages['liquidity']*100}%, "
+                    f"Burn: {current_percentages['burn']*100}%")
+
+    def get_current_fee_percentages(self) -> Dict[str, Decimal]:
+        """Get current fee distribution percentages"""
+        if self.halving_fee_manager:
+            return self.halving_fee_manager.get_current_distribution()
+        else:
+            # Fallback to default percentages if no halving fee manager
+            return self._fee_percentages.copy()
+    
+    def update_fee_distribution(self, new_percentages: Dict[str, Decimal]):
+        """Update fee distribution percentages after halving event"""
+        self._fee_percentages = new_percentages.copy()
+        logger.info(f"📊 Fee distribution updated: "
+                   f"Burn: {new_percentages['burn']*100}%, "
+                   f"Developer: {new_percentages['developer']*100}%, "
+                   f"Liquidity: {new_percentages['liquidity']*100}%")
+    
+    def set_halving_fee_manager(self, fee_manager: 'HalvingFeeManager'):
+        """Set the halving fee manager reference"""
+        self.halving_fee_manager = fee_manager
+        # Update current percentages to match fee manager
+        self._fee_percentages = fee_manager.get_current_distribution()
+        logger.info(f"🔧 Halving fee manager connected to blockchain")
+    
+    def save_fee_distribution_state(self, filepath: str = "data/fee_distribution_state.json") -> bool:
+        """Save fee distribution state to file"""
+        if self.halving_fee_manager:
+            return self.halving_fee_manager.save_state_to_file(filepath)
+        else:
+            logger.warning("⚠️ No halving fee manager connected, cannot save state")
+            return False
+    
+    def load_fee_distribution_state(self, filepath: str = "data/fee_distribution_state.json") -> bool:
+        """Load fee distribution state from file"""
+        if self.halving_fee_manager:
+            success = self.halving_fee_manager.load_state_from_file(filepath)
+            if success:
+                # Update blockchain percentages to match loaded state
+                self._fee_percentages = self.halving_fee_manager.get_current_distribution()
+            return success
+        else:
+            logger.warning("⚠️ No halving fee manager connected, cannot load state")
+            return False
+    
+    def validate_fee_distribution_consistency(self) -> bool:
+        """Validate consistency between blockchain and fee manager state"""
+        if not self.halving_fee_manager:
+            return True  # No fee manager, nothing to validate
+        
+        fee_manager_dist = self.halving_fee_manager.get_current_distribution()
+        blockchain_dist = self._fee_percentages
+        
+        for key in ['burn', 'developer', 'liquidity']:
+            if abs(fee_manager_dist[key] - blockchain_dist[key]) > Decimal('0.001'):
+                logger.error(f"❌ Fee distribution inconsistency detected for {key}: "
+                           f"FeeManager: {fee_manager_dist[key]}, "
+                           f"Blockchain: {blockchain_dist[key]}")
+                return False
+        
+        return True
+    
+    def set_voluntary_burn_manager(self, burn_manager: 'VoluntaryBurnManager'):
+        """Set the voluntary burn manager reference"""
+        self.voluntary_burn_manager = burn_manager
+        logger.info(f"🔥 Voluntary burn manager connected to blockchain")
+    
+    def create_voluntary_burn_transaction(self, from_address: str, amount: Decimal, memo: str = "") -> 'Transaction':
+        """Create a voluntary burn transaction"""
+        if not self.burn_address:
+            raise ValueError("Burn address not configured")
+        
+        return Transaction(
+            from_address=from_address,
+            to_address=self.burn_address,
+            amount=amount,
+            fee=Decimal('0'),  # No fee for voluntary burns
+            timestamp=time.time(),
+            transaction_type="VOLUNTARY_BURN",
+            memo=memo or f"Voluntary burn of {amount} PRGLD"
+        )
+    
+    def get_user_burn_reputation(self, user_address: str) -> Optional[Dict[str, Any]]:
+        """Get user's burn reputation data"""
+        if not self.voluntary_burn_manager:
+            return None
+        
+        user_rep = self.voluntary_burn_manager.get_user_reputation(user_address)
+        if user_rep:
+            return user_rep.to_dict()
+        return None
+    
+    def get_transaction_priority(self, user_address: str) -> Decimal:
+        """Get transaction priority multiplier for a user based on burn reputation"""
+        if self.voluntary_burn_manager:
+            return self.voluntary_burn_manager.get_transaction_priority(user_address)
+        return Decimal('1.0')
 
     def is_chain_valid(self) -> bool:
         """Validate the blockchain"""
