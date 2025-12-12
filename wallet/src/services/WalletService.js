@@ -17,28 +17,34 @@ class WalletService {
 
   /**
    * Generate a new wallet with mnemonic phrase
+   * Works independently of network connectivity
    * @returns {Object} Wallet data with address, mnemonic, and encrypted private key
    */
   async generateWallet() {
     try {
-      // Generate 12-word mnemonic phrase
+      // Generate 12-word mnemonic phrase (purely local operation)
       const mnemonic = bip39.generateMnemonic(128);
       
-      // Generate seed from mnemonic
+      // Generate seed from mnemonic (purely local operation)
       const seed = await bip39.mnemonicToSeed(mnemonic);
       
-      // Create HD wallet
+      // Create HD wallet (purely local operation)
       const hdkey = HDKey.fromMasterSeed(seed);
       
       // Derive key using BIP44 path for PlayerGold (m/44'/60'/0'/0/0)
       const derivedKey = hdkey.derive("m/44'/60'/0'/0/0");
       
-      // Get private and public keys
+      // Get private and public keys (purely local operation)
       const privateKey = derivedKey.privateKey;
       const publicKey = secp256k1.publicKeyCreate(privateKey);
       
-      // Generate address from public key (simplified - using hash of public key)
+      // Generate address from public key (purely local operation)
       const address = this.generateAddress(publicKey);
+      
+      // Validate generated address locally
+      if (!this.isValidAddress(address)) {
+        throw new Error('Generated address failed validation');
+      }
       
       // Create wallet object
       const wallet = {
@@ -49,10 +55,11 @@ class WalletService {
         privateKey: privateKey.toString('hex'),
         publicKey: publicKey.toString('hex'),
         createdAt: new Date().toISOString(),
-        balance: '0'
+        balance: '0',
+        networkIndependent: true // Flag to indicate this wallet was created without network
       };
 
-      // Store encrypted wallet
+      // Store encrypted wallet (local storage operation)
       await this.storeWallet(wallet);
       
       // Return wallet without private key for security
@@ -213,13 +220,55 @@ class WalletService {
       encryptedPrivateKey: encryptedPrivateKey,
       createdAt: wallet.createdAt,
       balance: wallet.balance,
-      imported: wallet.imported
+      imported: wallet.imported,
+      networkIndependent: wallet.networkIndependent || false
     };
 
     // Get existing wallets and add new one
     const wallets = this.store.get('wallets', []);
     wallets.push(secureWallet);
     this.store.set('wallets', wallets);
+    
+    // Also persist address separately for genesis block rewards
+    await this.persistAddressForGenesis(wallet.address, wallet.id);
+  }
+
+  /**
+   * Persist wallet address for genesis block rewards
+   * @param {string} address - Wallet address
+   * @param {string} walletId - Wallet ID
+   */
+  async persistAddressForGenesis(address, walletId) {
+    const genesisAddresses = this.store.get('genesis_addresses', []);
+    
+    // Check if address already exists
+    const existingEntry = genesisAddresses.find(entry => entry.address === address);
+    if (!existingEntry) {
+      genesisAddresses.push({
+        address: address,
+        walletId: walletId,
+        createdAt: new Date().toISOString(),
+        eligibleForGenesis: true
+      });
+      this.store.set('genesis_addresses', genesisAddresses);
+    }
+  }
+
+  /**
+   * Get addresses eligible for genesis block rewards
+   * @returns {Array} List of addresses eligible for genesis rewards
+   */
+  getGenesisEligibleAddresses() {
+    return this.store.get('genesis_addresses', []);
+  }
+
+  /**
+   * Generate wallet in offline mode (explicitly network-independent)
+   * @returns {Object} Wallet data created without any network dependency
+   */
+  async generateOfflineWallet() {
+    // This method is identical to generateWallet but explicitly documented as offline
+    return await this.generateWallet();
   }
 
   /**
@@ -232,6 +281,16 @@ class WalletService {
     const hash = crypto.createHash('sha256').update(publicKey).digest();
     const address = 'PG' + hash.toString('hex').substring(0, 38);
     return address;
+  }
+
+  /**
+   * Validate address format locally
+   * @param {string} address - Address to validate
+   * @returns {boolean} True if valid
+   */
+  isValidAddress(address) {
+    // PlayerGold addresses start with 'PG' and are 40 characters total
+    return /^PG[a-fA-F0-9]{38}$/.test(address);
   }
 
   /**

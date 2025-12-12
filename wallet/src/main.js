@@ -544,3 +544,84 @@ ipcMain.handle('estimate-mining-rewards', async () => {
     };
   }
 });
+
+// Blockchain Node Service handlers
+ipcMain.handle('get-blockchain-node-status', async () => {
+  try {
+    const BlockchainNodeService = require('./services/BlockchainNodeService');
+    return {
+      success: true,
+      status: BlockchainNodeService.getNodeStatus()
+    };
+  } catch (error) {
+    console.error('Error getting blockchain node status:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('check-blockchain-node-requirements', async () => {
+  try {
+    const BlockchainNodeService = require('./services/BlockchainNodeService');
+    return {
+      success: true,
+      requirements: await BlockchainNodeService.checkSystemRequirements()
+    };
+  } catch (error) {
+    console.error('Error checking blockchain node requirements:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('start-blockchain-node', async (event) => {
+  try {
+    const BlockchainNodeService = require('./services/BlockchainNodeService');
+    
+    // Set up status change listener
+    const unsubscribe = BlockchainNodeService.onStatusChange((status) => {
+      event.sender.send('blockchain-node-status-change', status);
+    });
+    
+    // Store unsubscribe function for cleanup
+    event.sender.once('destroyed', unsubscribe);
+    
+    return await BlockchainNodeService.startNode();
+  } catch (error) {
+    console.error('Error starting blockchain node:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('stop-blockchain-node', async () => {
+  try {
+    const BlockchainNodeService = require('./services/BlockchainNodeService');
+    return await BlockchainNodeService.stopNode();
+  } catch (error) {
+    console.error('Error stopping blockchain node:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-blockchain-network-status', async () => {
+  try {
+    const BlockchainNodeService = require('./services/BlockchainNodeService');
+    return await BlockchainNodeService.getNetworkStatus();
+  } catch (error) {
+    console.error('Error getting blockchain network status:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});

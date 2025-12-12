@@ -5,7 +5,7 @@ PlayerGold Multi-Node Network Launcher
 Launches a complete multi-node PlayerGold network with:
 - Bootstrap manager for genesis block creation
 - Multi-node PoAIP consensus
-- P2P networking with public IP validation
+- P2P networking with network-aware IP validation
 - Automatic reward distribution and halving
 - Fee distribution (30% dev, 10% pool, 60% burn)
 
