@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BlockchainNodeStatus from './BlockchainNodeStatus';
 
 const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -710,6 +711,9 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
         </div>
         
         <div className="content-body">
+          {/* Blockchain Node Status - Always visible */}
+          <BlockchainNodeStatus />
+          
           {renderContent()}
         </div>
       </div>

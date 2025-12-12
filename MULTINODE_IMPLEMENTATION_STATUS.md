@@ -7,7 +7,7 @@
 - **Multi-Node Consensus**: PoAIP consensus with 66% threshold and 10-second block intervals
 - **Enhanced Blockchain**: Multi-transaction types, fee distribution, system address management
 - **Crypto & Wallet**: Ed25519 keys, PlayerGold addresses, mnemonic support
-- **Network Manager**: Public IP validation, testnet/mainnet configurations
+- **Network Manager**: Network-aware IP validation (testnet accepts public+private, mainnet public-only), testnet/mainnet configurations
 
 ### 2. Economic Model
 - **Initial Supply**: 1,024M PRGLD liquidity pool
@@ -16,7 +16,7 @@
 - **Automatic Rewards**: Every block includes reward transactions
 
 ### 3. Security Features
-- **Public IP Only**: Automatically rejects private/local IPs
+- **Network-Aware IP Validation**: Testnet accepts public+private IPs, mainnet requires public IPs only
 - **TLS 1.3 Encryption**: All P2P communication encrypted
 - **Genesis Privileges**: Only genesis pioneers can reset testnet
 - **Network Validation**: Ensures true distributed network
@@ -131,7 +131,7 @@
 - [ ] Automatic reward distribution
 - [ ] Fee distribution (30/10/60)
 - [ ] Halving mechanism
-- [ ] Public IP validation
+- [x] Network-aware IP validation
 - [ ] Testnet reset functionality
 
 ## 📊 IMPLEMENTATION COMPLETENESS

@@ -19,6 +19,41 @@ class NetworkService {
     // Current network (default to testnet)
     this.currentNetwork = 'testnet';
     this.config = this.testnetConfig;
+    
+    // Local blockchain node service (lazy loaded to avoid circular dependency)
+    this._blockchainNodeService = null;
+  }
+  
+  /**
+   * Get blockchain node service (lazy loaded)
+   */
+  getBlockchainNodeService() {
+    if (!this._blockchainNodeService) {
+      try {
+        this._blockchainNodeService = require('./BlockchainNodeService');
+      } catch (error) {
+        console.warn('BlockchainNodeService not available:', error.message);
+      }
+    }
+    return this._blockchainNodeService;
+  }
+  
+  /**
+   * Get the best available API URL (local node first, then fallback)
+   */
+  getBestApiUrl() {
+    const nodeService = this.getBlockchainNodeService();
+    
+    // Try local node first if available
+    if (nodeService && nodeService.isRunning) {
+      const localUrl = nodeService.getApiUrl();
+      if (localUrl) {
+        return localUrl;
+      }
+    }
+    
+    // Fallback to configured URL
+    return this.config.apiUrl;
   }
 
   /**
@@ -55,8 +90,26 @@ class NetworkService {
    * @returns {Object} Balance information
    */
   async getBalance(address) {
+    // Try local blockchain node first
+    const nodeService = this.getBlockchainNodeService();
+    if (nodeService && nodeService.isRunning) {
+      try {
+        const localResult = await nodeService.getBalance(address);
+        if (localResult.success) {
+          return {
+            ...localResult,
+            source: 'local_node'
+          };
+        }
+      } catch (error) {
+        console.warn('Local node balance query failed:', error.message);
+      }
+    }
+    
+    // Fallback to remote API
     try {
-      const response = await axios.get(`${this.config.apiUrl}/api/v1/balance/${address}`, {
+      const apiUrl = this.getBestApiUrl();
+      const response = await axios.get(`${apiUrl}/api/v1/balance/${address}`, {
         timeout: 10000
       });
       
@@ -64,7 +117,8 @@ class NetworkService {
         success: true,
         balance: response.data.balance || '0',
         address: address,
-        network: this.currentNetwork
+        network: this.currentNetwork,
+        source: 'remote_api'
       };
     } catch (error) {
       console.error('Error getting balance:', error.message);
@@ -76,7 +130,8 @@ class NetworkService {
           balance: '1000.0', // Mock testnet balance
           address: address,
           network: this.currentNetwork,
-          mock: true
+          mock: true,
+          source: 'mock'
         };
       }
       
@@ -256,11 +311,30 @@ class NetworkService {
       };
     }
 
+    // Try local blockchain node first
+    const nodeService = this.getBlockchainNodeService();
+    if (nodeService && nodeService.isRunning) {
+      try {
+        console.log(`🚰 Requesting faucet tokens from local node: ${amount} PRGLD to ${address}`);
+        const localResult = await nodeService.requestFaucetTokens(address, amount);
+        if (localResult.success) {
+          return {
+            ...localResult,
+            source: 'local_node'
+          };
+        }
+      } catch (error) {
+        console.warn('Local node faucet request failed:', error.message);
+      }
+    }
+
+    // Fallback to remote faucet
     try {
-      console.log(`🚰 Requesting faucet tokens: ${amount} PRGLD to ${address}`);
-      console.log(`🌐 API URL: ${this.config.apiUrl}/api/v1/faucet`);
+      console.log(`🚰 Requesting faucet tokens from remote: ${amount} PRGLD to ${address}`);
+      const apiUrl = this.getBestApiUrl();
+      console.log(`🌐 API URL: ${apiUrl}/api/v1/faucet`);
       
-      const response = await axios.post(`${this.config.apiUrl}/api/v1/faucet`, {
+      const response = await axios.post(`${apiUrl}/api/v1/faucet`, {
         address: address,
         amount: amount
       }, {
@@ -277,13 +351,13 @@ class NetworkService {
         transactionId: response.data.transactionId,
         amount: amount,
         address: address,
-        message: `Requested ${amount} PRGLD from testnet faucet`
+        message: `Requested ${amount} PRGLD from testnet faucet`,
+        source: 'remote_api'
       };
     } catch (error) {
       console.error('❌ Error requesting faucet tokens:', error.message);
       console.error('❌ Error details:', error.response?.data || error);
       
-      // For now, let's propagate the error instead of returning mock
       return {
         success: false,
         error: `Faucet request failed: ${error.message}`,

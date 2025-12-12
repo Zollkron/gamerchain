@@ -6,7 +6,7 @@ Manages network configurations for testnet and mainnet:
 - Network-specific settings
 - Bootstrap node configurations
 - Network compatibility validation
-- IP validation for public-only networks
+- Network-aware IP validation (testnet allows private, mainnet public-only)
 """
 
 import logging
@@ -50,7 +50,7 @@ class NetworkManager:
         self.current_network = NetworkType.TESTNET
         self.networks = self._initialize_networks()
         
-        # IP validation for public-only networks
+        # IP validation for network-aware filtering (testnet allows private, mainnet public-only)
         self.private_ipv4_ranges = [
             ipaddress.IPv4Network('10.0.0.0/8'),
             ipaddress.IPv4Network('172.16.0.0/12'),

@@ -30,7 +30,7 @@ This implementation provides a complete multi-node blockchain network for Player
 - Developer recovery data sent via email
 
 ### 🔒 Network Security
-- **Public IPs only** - rejects private/local IPs automatically
+- **Network-aware IP validation** - testnet accepts both public and private IPs, mainnet requires public IPs only
 - TLS 1.3 encryption for all P2P communication
 - Network compatibility validation
 - Genesis pioneers can reset testnet (mainnet immutable)
@@ -48,7 +48,7 @@ This implementation provides a complete multi-node blockchain network for Player
 │  └── Reward Distribution (Random selection >90% rep)       │
 ├─────────────────────────────────────────────────────────────┤
 │  P2P Network Layer                                         │
-│  ├── Public IP Validation                                  │
+│  ├── Network-Aware IP Validation                          │
 │  ├── TLS 1.3 Encryption                                    │
 │  ├── Network Compatibility Check                           │
 │  └── Auto-discovery & Bootstrap Nodes                      │
@@ -235,10 +235,11 @@ curl -X POST http://127.0.0.1:19080/api/v1/bootstrap/reset \
 
 ## Security Features
 
-### Public IP Validation
-- Automatically rejects private IP ranges (10.x.x.x, 192.168.x.x, etc.)
-- Blocks loopback and link-local addresses
-- Ensures true distributed network
+### Network-Aware IP Validation
+- **Testnet**: Accepts both public and private IP ranges (10.x.x.x, 192.168.x.x, 127.x.x.x, etc.) for local testing
+- **Mainnet**: Requires public IPs only, rejects private/local addresses
+- Blocks reserved and invalid IP ranges in both modes
+- Ensures appropriate network topology for each environment
 
 ### Genesis Privileges
 - Only the original 2 pioneer nodes can reset testnet
