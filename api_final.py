@@ -200,6 +200,236 @@ def network_status():
         'timestamp': datetime.utcnow().isoformat()
     })
 
+# ===== FEE DISTRIBUTION ENDPOINTS =====
+
+@app.route('/api/v1/fee-distribution/current', methods=['GET'])
+def get_current_fee_distribution():
+    """Get current fee distribution percentages"""
+    # Mock data - in real implementation, this would come from HalvingFeeManager
+    return jsonify({
+        'success': True,
+        'distribution': {
+            'burn': '0.60',
+            'developer': '0.30',
+            'liquidity': '0.10'
+        },
+        'halving_number': 0,
+        'last_update': None,
+        'redistribution_complete': False,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/fee-distribution/history', methods=['GET'])
+def get_fee_distribution_history():
+    """Get fee distribution history"""
+    # Mock data - in real implementation, this would come from HalvingFeeManager
+    return jsonify({
+        'success': True,
+        'history': [],
+        'total_redistributions': 0,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/fee-distribution/next-halving', methods=['GET'])
+def get_next_halving_info():
+    """Get information about the next halving event"""
+    current_block = request.args.get('current_block', 0, type=int)
+    
+    # Mock calculation
+    halving_interval = 100000
+    next_halving_block = ((current_block // halving_interval) + 1) * halving_interval
+    blocks_remaining = next_halving_block - current_block
+    
+    return jsonify({
+        'success': True,
+        'current_block': current_block,
+        'next_halving_block': next_halving_block,
+        'blocks_remaining': blocks_remaining,
+        'current_distribution': {
+            'burn': '0.60',
+            'developer': '0.30',
+            'liquidity': '0.10'
+        },
+        'next_distribution': {
+            'burn': '0.50',
+            'developer': '0.35',
+            'liquidity': '0.15'
+        },
+        'redistribution_complete': False,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/fee-distribution/timeline', methods=['GET'])
+def get_halving_timeline():
+    """Get complete timeline of halvings and redistributions"""
+    return jsonify({
+        'success': True,
+        'timeline': [],
+        'total_events': 0,
+        'projected_events': 6,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+# ===== VOLUNTARY BURN ENDPOINTS =====
+
+@app.route('/api/v1/voluntary-burn/statistics', methods=['GET'])
+def get_voluntary_burn_statistics():
+    """Get voluntary burn statistics"""
+    return jsonify({
+        'success': True,
+        'overview': {
+            'total_voluntary_burned': '0.0',
+            'total_users': 0,
+            'total_burn_transactions': 0,
+            'average_reputation': '0.0',
+            'total_reputation_points': '0.0'
+        },
+        'configuration': {
+            'reputation_per_token': '1.0',
+            'max_priority_multiplier': '10.0',
+            'reputation_decay_rate': '0.01'
+        },
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/voluntary-burn/leaderboard', methods=['GET'])
+def get_voluntary_burn_leaderboard():
+    """Get voluntary burn leaderboard"""
+    leaderboard_type = request.args.get('type', 'total_burned')  # 'total_burned' or 'reputation'
+    limit = request.args.get('limit', 10, type=int)
+    
+    return jsonify({
+        'success': True,
+        'leaderboard_type': leaderboard_type,
+        'limit': limit,
+        'users': [],
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/voluntary-burn/user/<address>', methods=['GET'])
+def get_user_burn_reputation(address):
+    """Get user's burn reputation and analytics"""
+    return jsonify({
+        'success': True,
+        'user_address': address,
+        'reputation_data': {
+            'total_burned': '0.0',
+            'reputation_score': '0.0',
+            'burn_count': 0,
+            'priority_multiplier': '1.0',
+            'last_burn_timestamp': None
+        },
+        'burn_statistics': {
+            'total_burns': 0,
+            'average_burn_amount': '0.0',
+            'burn_frequency_per_day': 0,
+            'first_burn': None,
+            'last_burn': None
+        },
+        'ranking': {
+            'by_total_burned': -1,
+            'by_reputation': -1
+        },
+        'burn_history': [],
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/voluntary-burn/history', methods=['GET'])
+def get_voluntary_burn_history():
+    """Get voluntary burn history"""
+    user_address = request.args.get('user_address')
+    limit = request.args.get('limit', 100, type=int)
+    
+    return jsonify({
+        'success': True,
+        'user_address': user_address,
+        'limit': limit,
+        'burns': [],
+        'total_burns': 0,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/voluntary-burn/create', methods=['POST'])
+def create_voluntary_burn():
+    """Create a voluntary burn transaction"""
+    data = request.get_json()
+    
+    if not data or 'from_address' not in data or 'amount' not in data:
+        return jsonify({
+            'success': False,
+            'error': 'Missing required fields: from_address, amount'
+        }), 400
+    
+    from_address = data['from_address']
+    amount = float(data['amount'])
+    memo = data.get('memo', f'Voluntary burn of {amount} PRGLD')
+    
+    if amount <= 0:
+        return jsonify({
+            'success': False,
+            'error': 'Amount must be positive'
+        }), 400
+    
+    # Mock transaction creation
+    transaction_id = f"voluntary_burn_{int(time.time())}_{hash(from_address) % 10000}"
+    
+    return jsonify({
+        'success': True,
+        'transaction_id': transaction_id,
+        'from_address': from_address,
+        'amount': amount,
+        'memo': memo,
+        'reputation_gained': amount * 1.0,  # 1 reputation per token
+        'estimated_priority_increase': '1.5x',
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+# ===== MONITORING ENDPOINTS =====
+
+@app.route('/api/v1/monitoring/fee-distribution', methods=['GET'])
+def get_fee_distribution_monitoring():
+    """Get comprehensive fee distribution monitoring data"""
+    return jsonify({
+        'success': True,
+        'current_state': {
+            'distribution': {
+                'burn': '0.60',
+                'developer': '0.30',
+                'liquidity': '0.10'
+            },
+            'total_redistributions': 0,
+            'burn_exhausted': False,
+            'last_update': None
+        },
+        'statistics': {
+            'total_burn_reduction': '0.0',
+            'total_developer_increase': '0.0',
+            'total_liquidity_increase': '0.0',
+            'redistribution_efficiency': '0.0'
+        },
+        'recent_events': [],
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/v1/monitoring/voluntary-burn', methods=['GET'])
+def get_voluntary_burn_monitoring():
+    """Get comprehensive voluntary burn monitoring data"""
+    return jsonify({
+        'success': True,
+        'overview': {
+            'total_voluntary_burned': '0.0',
+            'total_users': 0,
+            'total_burn_transactions': 0,
+            'average_reputation': '0.0'
+        },
+        'leaderboards': {
+            'top_burners': [],
+            'top_reputation': []
+        },
+        'recent_activity': [],
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
 if __name__ == '__main__':
     print("=" * 60)
     print("API WALLET PLAYERGOLD - FUNCIONANDO")

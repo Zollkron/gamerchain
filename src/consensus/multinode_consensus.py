@@ -69,15 +69,23 @@ class ValidatorNode:
 
 
 class HalvingManager:
-    """Manages the halving mechanism for block rewards"""
+    """Manages the halving mechanism for block rewards and fee redistribution"""
     
     def __init__(self, initial_reward: Decimal = Decimal('1024'), 
-                 halving_interval: int = 100000):
+                 halving_interval: int = 100000,
+                 fee_manager: Optional['HalvingFeeManager'] = None):
         self.initial_reward = initial_reward
         self.halving_interval = halving_interval
         self.current_reward = initial_reward
         self.halvings_occurred = 0
         self.next_halving_block = halving_interval
+        
+        # Import here to avoid circular imports
+        if fee_manager is None:
+            from .halving_fee_manager import HalvingFeeManager
+            self.fee_manager = HalvingFeeManager()
+        else:
+            self.fee_manager = fee_manager
     
     def calculate_current_reward(self, block_number: int) -> Decimal:
         """Calculate current reward based on block number"""
@@ -90,14 +98,27 @@ class HalvingManager:
         return block_number > 0 and block_number % self.halving_interval == 0
     
     def process_halving(self, block_number: int):
-        """Process a halving event"""
+        """Process a halving event - handles both reward halving and fee redistribution"""
         if self.check_halving_event(block_number):
             self.halvings_occurred += 1
             self.current_reward = self.calculate_current_reward(block_number)
             self.next_halving_block = block_number + self.halving_interval
             
+            # Process fee redistribution
+            new_distribution = self.fee_manager.process_halving_redistribution(
+                self.halvings_occurred, block_number
+            )
+            
             logger.info(f"🎯 HALVING EVENT at block {block_number}")
             logger.info(f"💰 New reward per block: {self.current_reward} PRGLD")
+            logger.info(f"📊 New fee distribution: {new_distribution}")
+            logger.info(f"📅 Next halving at block: {self.next_halving_block}")
+            
+            return new_distribution
+            
+            return new_distribution
+        
+        return None
             logger.info(f"📅 Next halving at block: {self.next_halving_block}")
 
 
@@ -132,6 +153,17 @@ class MultiNodeConsensus:
         # Halving manager
         self.halving_manager = HalvingManager()
         
+        # Connect halving fee manager to blockchain
+        self.blockchain.set_halving_fee_manager(self.halving_manager.fee_manager)
+        
+        # Initialize and connect voluntary burn manager
+        from .voluntary_burn_manager import VoluntaryBurnManager
+        self.voluntary_burn_manager = VoluntaryBurnManager()
+        self.blockchain.set_voluntary_burn_manager(self.voluntary_burn_manager)
+        
+        # Load fee distribution state on startup
+        self._load_fee_distribution_state_on_startup()
+        
         # System addresses (will be set after genesis)
         self.system_addresses: Optional[SystemAddresses] = None
         
@@ -144,6 +176,9 @@ class MultiNodeConsensus:
         )
         self.p2p_network.register_message_handler(
             MessageType.CHALLENGE, self._handle_consensus_vote
+        )
+        self.p2p_network.register_message_handler(
+            MessageType.FEE_DISTRIBUTION_UPDATE, self._handle_fee_distribution_update
         )
         
         logger.info(f"Multi-Node Consensus initialized for node {node_id}")
@@ -227,8 +262,15 @@ class MultiNodeConsensus:
             current_block = self.blockchain.get_latest_block()
             new_block_index = current_block.index + 1
             
-            # Check for halving event
-            self.halving_manager.process_halving(new_block_index)
+            # Check for halving event and update fee distribution if needed
+            new_distribution = self.halving_manager.process_halving(new_block_index)
+            if new_distribution:
+                # Halving occurred, update blockchain fee distribution
+                self.blockchain.update_fee_distribution(new_distribution)
+                # Save updated state to disk
+                self._save_fee_distribution_state()
+                # Broadcast fee distribution update to all nodes
+                await self._broadcast_fee_distribution_update(new_distribution, new_block_index)
             
             # Collect transactions for the block
             block_transactions = await self._collect_block_transactions(new_block_index)
@@ -788,6 +830,110 @@ class MultiNodeConsensus:
             
         except Exception as e:
             logger.error(f"Error handling consensus vote: {e}")
+    
+    async def _handle_fee_distribution_update(self, message: P2PMessage):
+        """Handle incoming fee distribution update messages"""
+        try:
+            payload = message.payload
+            
+            if payload.get('action') == 'fee_distribution_update':
+                new_distribution = {
+                    'burn': Decimal(payload['distribution']['burn']),
+                    'developer': Decimal(payload['distribution']['developer']),
+                    'liquidity': Decimal(payload['distribution']['liquidity'])
+                }
+                block_number = payload['block_number']
+                halving_number = payload['halving_number']
+                
+                # Validate the distribution
+                total = sum(new_distribution.values())
+                if abs(total - Decimal('1.0')) > Decimal('0.001'):
+                    logger.warning(f"❌ Invalid fee distribution received: percentages don't sum to 100%")
+                    return
+                
+                # Update local fee manager and blockchain
+                self.halving_manager.fee_manager.current_burn = new_distribution['burn']
+                self.halving_manager.fee_manager.current_developer = new_distribution['developer']
+                self.halving_manager.fee_manager.current_liquidity = new_distribution['liquidity']
+                
+                self.blockchain.update_fee_distribution(new_distribution)
+                
+                # Save updated state to disk
+                self._save_fee_distribution_state()
+                
+                logger.info(f"📊 Fee distribution updated from network: "
+                           f"Burn: {new_distribution['burn']*100}%, "
+                           f"Dev: {new_distribution['developer']*100}%, "
+                           f"Pool: {new_distribution['liquidity']*100}% "
+                           f"(Halving {halving_number} at block {block_number})")
+            
+        except Exception as e:
+            logger.error(f"Error handling fee distribution update: {e}")
+    
+    async def _broadcast_fee_distribution_update(self, new_distribution: Dict[str, Decimal], block_number: int):
+        """Broadcast fee distribution update to all network nodes"""
+        try:
+            halving_number = self.halving_manager.halvings_occurred
+            
+            message = P2PMessage(
+                message_type=MessageType.FEE_DISTRIBUTION_UPDATE,
+                sender_id=self.node_id,
+                payload={
+                    'action': 'fee_distribution_update',
+                    'distribution': {
+                        'burn': str(new_distribution['burn']),
+                        'developer': str(new_distribution['developer']),
+                        'liquidity': str(new_distribution['liquidity'])
+                    },
+                    'block_number': block_number,
+                    'halving_number': halving_number,
+                    'timestamp': time.time()
+                }
+            )
+            
+            await self.p2p_network.broadcast_message(message)
+            
+            logger.info(f"📡 Fee distribution update broadcasted to network: "
+                       f"Halving {halving_number} at block {block_number}")
+            
+        except Exception as e:
+            logger.error(f"Error broadcasting fee distribution update: {e}")
+    
+    def _load_fee_distribution_state_on_startup(self):
+        """Load fee distribution state on node startup"""
+        try:
+            import os
+            
+            # Ensure data directory exists
+            os.makedirs("data", exist_ok=True)
+            
+            # Try to load existing state
+            success = self.blockchain.load_fee_distribution_state()
+            if success:
+                logger.info("📂 Fee distribution state loaded from previous session")
+                
+                # Validate consistency
+                if not self.blockchain.validate_fee_distribution_consistency():
+                    logger.warning("⚠️ Fee distribution state inconsistency detected, resetting to defaults")
+                    self.halving_manager.fee_manager.reset_to_initial()
+                    self.blockchain.update_fee_distribution(self.halving_manager.fee_manager.get_current_distribution())
+            else:
+                logger.info("📋 No previous fee distribution state found, using defaults")
+                
+        except Exception as e:
+            logger.error(f"❌ Error loading fee distribution state on startup: {e}")
+    
+    def _save_fee_distribution_state(self):
+        """Save current fee distribution state"""
+        try:
+            success = self.blockchain.save_fee_distribution_state()
+            if success:
+                logger.debug("💾 Fee distribution state saved")
+            else:
+                logger.warning("⚠️ Failed to save fee distribution state")
+                
+        except Exception as e:
+            logger.error(f"❌ Error saving fee distribution state: {e}")
     
     async def _monitor_validators(self):
         """Monitor validator nodes and update their status"""

@@ -37,6 +37,7 @@ class MessageType(Enum):
     SYNC_REQUEST = "sync_request"
     SYNC_RESPONSE = "sync_response"
     HEARTBEAT = "heartbeat"
+    FEE_DISTRIBUTION_UPDATE = "fee_distribution_update"  # Added for halving fee redistribution
 
 
 @dataclass
