@@ -33,6 +33,7 @@ class MessageType(Enum):
     CHALLENGE = "challenge"
     SOLUTION = "solution"
     PEER_DISCOVERY = "peer_discovery"
+    AI_NODE_DISCOVERY = "ai_node_discovery"  # Added for AI node discovery
     SYNC_REQUEST = "sync_request"
     SYNC_RESPONSE = "sync_response"
     HEARTBEAT = "heartbeat"
@@ -272,53 +273,76 @@ class P2PNetwork:
             await writer.wait_closed()
     
     async def _perform_handshake(self, reader, writer) -> Optional[PeerInfo]:
-        """Perform P2P handshake with peer and validate network compatibility"""
+        """Perform simplified P2P handshake with peer (based on working simple_multinode_test.py pattern)"""
         try:
-            # Send our node info including network_id
+            logger.debug(f"🤝 {self.node_id}: Starting handshake with peer")
+            
+            # Send our node info (simplified like the working test)
             handshake_data = {
                 'node_id': self.node_id,
-                'network_id': self.network_id,  # Include network ID
-                'network_type': self.network_type.value,
-                'version': '1.0.0',
-                'capabilities': ['ai_node', 'validator'],
+                'network_id': self.network_id,
+                'is_ai_node': True,
                 'timestamp': time.time()
             }
             
             await self._send_raw_message(writer, handshake_data)
+            logger.debug(f"📤 {self.node_id}: Sent handshake data")
             
-            # Receive peer info
-            peer_data = await self._receive_raw_message(reader)
+            # Receive peer info with timeout
+            try:
+                peer_data = await asyncio.wait_for(self._receive_raw_message(reader), timeout=10.0)
+            except asyncio.TimeoutError:
+                logger.warning(f"⏰ {self.node_id}: Handshake timeout")
+                return None
             
             if peer_data and 'node_id' in peer_data:
-                # Validate network compatibility
-                peer_network_id = peer_data.get('network_id', 'unknown')
+                peer_network_id = peer_data.get('network_id', self.network_id)
                 
-                if not self.network_manager.validate_network_compatibility(peer_network_id):
-                    logger.warning(
-                        f"Rejecting peer {peer_data['node_id']}: "
-                        f"incompatible network (peer={peer_network_id}, local={self.network_id})"
-                    )
-                    self.stats['incompatible_peers_rejected'] += 1
+                # Simple network compatibility check
+                if peer_network_id != self.network_id:
+                    logger.warning(f"❌ {self.node_id}: Network mismatch - peer: {peer_network_id}, local: {self.network_id}")
                     return None
                 
                 peer_info = PeerInfo(
                     peer_id=peer_data['node_id'],
                     address=writer.get_extra_info('peername')[0],
                     port=writer.get_extra_info('peername')[1],
-                    public_key='',  # TODO: Extract from TLS certificate
+                    public_key='',
                     network_id=peer_network_id,
-                    last_seen=time.time()
+                    last_seen=time.time(),
+                    is_ai_node=peer_data.get('is_ai_node', False)
                 )
                 
-                logger.info(
-                    f"Handshake successful with {peer_info.peer_id} "
-                    f"on {peer_network_id}"
-                )
+                logger.info(f"✅ {self.node_id}: Handshake successful with {peer_info.peer_id}")
+                
+                # Send simple discovery message as proper P2P message
+                discovery_payload = {
+                    'node_id': self.node_id,
+                    'is_ai_node': True,
+                    'ai_model_hash': f"model_{self.node_id}",
+                    'validator_address': f"PGval_{self.node_id}",
+                    'user_reward_address': f"PGuser_{self.node_id}",
+                    'timestamp': time.time()
+                }
+                
+                discovery_msg = {
+                    'type': 'ai_node_discovery',
+                    'sender_id': self.node_id,
+                    'recipient_id': peer_data.get('node_id'),
+                    'payload': discovery_payload,
+                    'timestamp': time.time(),
+                    'signature': ''
+                }
+                
+                await self._send_raw_message(writer, discovery_msg)
+                logger.info(f"📡 {self.node_id}: Sent AI discovery message to {peer_info.peer_id}")
                 
                 return peer_info
+            else:
+                logger.warning(f"❌ {self.node_id}: Invalid peer data received")
             
         except Exception as e:
-            logger.error(f"Handshake failed: {e}")
+            logger.error(f"❌ {self.node_id}: Handshake failed: {e}")
         
         return None
     
@@ -551,12 +575,23 @@ class P2PNetwork:
         return successful_sends
     
     async def connect_to_peer(self, address: str, port: int) -> bool:
-        """Connect to a specific peer"""
+        """Connect to a specific peer with improved error handling"""
         try:
-            reader, writer = await asyncio.open_connection(address, port)
+            logger.info(f"🔗 {self.node_id}: Attempting TCP connection to {address}:{port}")
             
-            # Perform handshake
-            peer_info = await self._perform_handshake(reader, writer)
+            # Add connection timeout
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(address, port), 
+                timeout=10.0
+            )
+            logger.info(f"✅ {self.node_id}: TCP connection established to {address}:{port}")
+            
+            # Perform handshake with timeout
+            logger.info(f"🤝 {self.node_id}: Starting handshake with {address}:{port}")
+            peer_info = await asyncio.wait_for(
+                self._perform_handshake(reader, writer),
+                timeout=15.0
+            )
             
             if peer_info:
                 self.peers[peer_info.peer_id] = peer_info
@@ -568,11 +603,19 @@ class P2PNetwork:
                     self._handle_peer_messages(peer_info.peer_id, reader, writer)
                 )
                 
-                logger.info(f"Successfully connected to peer {peer_info.peer_id}")
+                logger.info(f"🎉 {self.node_id}: Successfully connected to peer {peer_info.peer_id} at {address}:{port}")
                 return True
+            else:
+                logger.warning(f"❌ {self.node_id}: Handshake failed with {address}:{port}")
+                writer.close()
+                await writer.wait_closed()
             
+        except ConnectionRefusedError:
+            logger.debug(f"🚫 {self.node_id}: Connection refused by {address}:{port} (node may not be ready yet)")
+        except asyncio.TimeoutError:
+            logger.warning(f"⏰ {self.node_id}: Connection timeout to {address}:{port}")
         except Exception as e:
-            logger.error(f"Failed to connect to {address}:{port}: {e}")
+            logger.warning(f"❌ {self.node_id}: Failed to connect to {address}:{port}: {e}")
         
         return False
     
@@ -594,32 +637,21 @@ class P2PNetwork:
         }
 
     async def _connect_to_bootstrap_nodes(self):
-        """Connect to bootstrap nodes from network configuration"""
+        """Connect to bootstrap nodes from network configuration with improved timing"""
         try:
             # Get bootstrap nodes from network manager
             network_config = self.network_manager.get_network_config()
             bootstrap_nodes = getattr(network_config, 'bootstrap_nodes', [])
             
             if not bootstrap_nodes:
-                logger.warning("No bootstrap nodes configured")
+                logger.warning(f"🔍 {self.node_id}: No bootstrap nodes configured")
                 return
             
-            logger.info(f"Attempting to connect to {len(bootstrap_nodes)} bootstrap nodes...")
+            logger.info(f"🔗 {self.node_id}: Attempting to connect to {len(bootstrap_nodes)} bootstrap nodes...")
             
-            # Wait a bit for server to be fully ready
-            await asyncio.sleep(3)
-            
-            # Get our local IP to avoid connecting to ourselves
-            our_ip = None
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                sock.connect(("8.8.8.8", 80))
-                our_ip = sock.getsockname()[0]
-                sock.close()
-                logger.info(f"Our local IP: {our_ip}")
-            except Exception as e:
-                logger.warning(f"Could not determine local IP: {e}")
+            # Wait longer for server to be fully ready and other nodes to start
+            logger.info(f"⏳ {self.node_id}: Waiting 5 seconds for network readiness...")
+            await asyncio.sleep(5)
             
             successful_connections = 0
             for node_address in bootstrap_nodes:
@@ -633,54 +665,110 @@ class P2PNetwork:
                         port = self.listen_port
                     
                     # Don't connect to ourselves
-                    if our_ip and ip == our_ip and port == self.listen_port:
-                        logger.debug(f"Skipping connection to self: {node_address}")
+                    if port == self.listen_port:
+                        logger.debug(f"🚫 {self.node_id}: Skipping connection to self: {node_address}")
                         continue
                     
-                    # Skip localhost addresses if we're not localhost
-                    if ip in ['127.0.0.1', 'localhost'] and our_ip and our_ip != '127.0.0.1':
-                        logger.debug(f"Skipping localhost address: {node_address}")
-                        continue
+                    logger.info(f"🎯 {self.node_id}: Attempting to connect to bootstrap node: {ip}:{port}")
                     
-                    logger.info(f"Attempting to connect to bootstrap node: {ip}:{port}")
+                    # Try to connect with extended retry logic
+                    max_retries = 5
+                    for retry in range(max_retries):
+                        try:
+                            logger.info(f"🔄 {self.node_id}: Connection attempt {retry + 1}/{max_retries} to {ip}:{port}")
+                            success = await self.connect_to_peer(ip, port)
+                            
+                            if success:
+                                successful_connections += 1
+                                logger.info(f"✅ {self.node_id}: Connected to bootstrap node {ip}:{port}")
+                                break
+                            else:
+                                if retry < max_retries - 1:
+                                    wait_time = 3 + (retry * 2)  # Exponential backoff
+                                    logger.info(f"⏳ {self.node_id}: Retrying connection to {ip}:{port} in {wait_time}s...")
+                                    await asyncio.sleep(wait_time)
+                                else:
+                                    logger.warning(f"❌ {self.node_id}: Failed to connect to {ip}:{port} after {max_retries} attempts")
+                        
+                        except Exception as retry_error:
+                            if retry < max_retries - 1:
+                                wait_time = 3 + (retry * 2)
+                                logger.warning(f"⚠️ {self.node_id}: Retry {retry + 1} failed for {ip}:{port}: {retry_error}")
+                                logger.info(f"⏳ {self.node_id}: Waiting {wait_time}s before next retry...")
+                                await asyncio.sleep(wait_time)
+                            else:
+                                logger.error(f"❌ {self.node_id}: All retries failed for {ip}:{port}: {retry_error}")
                     
-                    # Try to connect with timeout
-                    try:
-                        success = await asyncio.wait_for(
-                            self.connect_to_peer(ip, port), 
-                            timeout=10.0
-                        )
-                        if success:
-                            successful_connections += 1
-                            logger.info(f"✅ Connected to bootstrap node {ip}:{port}")
-                        else:
-                            logger.warning(f"❌ Failed to connect to bootstrap node {ip}:{port}")
-                    except asyncio.TimeoutError:
-                        logger.warning(f"⏰ Timeout connecting to bootstrap node {ip}:{port}")
-                    
-                    # Small delay between connection attempts
+                    # Delay between different bootstrap nodes
                     await asyncio.sleep(2)
                     
                 except Exception as e:
-                    logger.error(f"Error connecting to bootstrap node {node_address}: {e}")
+                    logger.error(f"❌ {self.node_id}: Error with bootstrap node {node_address}: {e}")
             
             if successful_connections > 0:
-                logger.info(f"✅ Successfully connected to {successful_connections} bootstrap nodes")
+                logger.info(f"🎉 {self.node_id}: Successfully connected to {successful_connections} bootstrap nodes")
                 
                 # Log current peer status
                 peer_count = self.get_peer_count()
-                logger.info(f"📊 Current network status: {peer_count} peers, {len(self.connections)} connections")
+                logger.info(f"📊 {self.node_id}: Network status - {peer_count} peers, {len(self.connections)} connections")
+                
+                # List connected peers
+                if self.peers:
+                    peer_list = [peer.peer_id for peer in self.peers.values()]
+                    logger.info(f"👥 {self.node_id}: Connected peers: {peer_list}")
                 
             else:
-                logger.warning("❌ Failed to connect to any bootstrap nodes")
+                logger.warning(f"❌ {self.node_id}: Failed to connect to any bootstrap nodes")
                 
-                # Schedule retry in 30 seconds
-                logger.info("Scheduling bootstrap connection retry in 30 seconds...")
-                await asyncio.sleep(30)
+                # Schedule retry with longer delay
+                retry_delay = 20
+                logger.info(f"🔄 {self.node_id}: Scheduling bootstrap retry in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
                 asyncio.create_task(self._connect_to_bootstrap_nodes())
                 
         except Exception as e:
-            logger.error(f"Error in bootstrap connection process: {e}")
+            logger.error(f"❌ {self.node_id}: Error in bootstrap connection process: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    async def _send_peer_discovery_message(self, writer, peer_data):
+        """Send peer discovery message to newly connected peer"""
+        try:
+            discovery_message = {
+                'node_id': self.node_id,
+                'network_id': self.network_id,
+                'is_ai_node': True,
+                'ai_model_hash': f"ai_model_{self.node_id}_{int(time.time())}",
+                'validator_address': f"PGval_{self.node_id}",
+                'user_reward_address': f"PGuser_{self.node_id}",
+                'timestamp': time.time()
+            }
+            
+            # Create P2P message
+            p2p_message = P2PMessage(
+                message_type=MessageType.PEER_DISCOVERY,
+                sender_id=self.node_id,
+                recipient_id=peer_data.get('node_id'),
+                payload=discovery_message,
+                timestamp=time.time(),
+                signature=""
+            )
+            
+            # Send the message
+            message_data = {
+                'type': p2p_message.message_type.value,
+                'sender_id': p2p_message.sender_id,
+                'recipient_id': p2p_message.recipient_id,
+                'payload': p2p_message.payload,
+                'timestamp': p2p_message.timestamp,
+                'signature': p2p_message.signature
+            }
+            
+            await self._send_raw_message(writer, message_data)
+            logger.info(f"📡 Sent peer discovery message to {peer_data.get('node_id')}")
+            
+        except Exception as e:
+            logger.error(f"Error sending peer discovery message: {e}")
 
 
 class MDNSService:
