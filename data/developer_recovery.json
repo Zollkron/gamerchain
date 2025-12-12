@@ -1,0 +1,15 @@
+{
+  "address": "PG16cgjYVij5aVfaASLbebRD5R3dJdMH45Vg",
+  "private_key": "a9a110e67810fbafe49965b9af304d5b323dc5901f69cb2a50fcf3ec988f53d7",
+  "mnemonic": "impulse air result any unaware nuclear forward harbor roast pull spread stone",
+  "email": "mfp_zollkron@yahoo.com",
+  "network": "testnet",
+  "generated_at": "2025-12-12T14:16:46.339185",
+  "system_addresses": {
+    "liquidity_pool": "PG1GGqsDfk2o5KBsE718Df55Nu9QGWJBQ13J",
+    "burn_address": "PGburn851b33b9309f73809daff35fd69bd8e25f05fe4a96d3170d6c3c24b34e",
+    "developer_address": "PG16cgjYVij5aVfaASLbebRD5R3dJdMH45Vg",
+    "developer_private_key": "a9a110e67810fbafe49965b9af304d5b323dc5901f69cb2a50fcf3ec988f53d7",
+    "developer_mnemonic": "impulse air result any unaware nuclear forward harbor roast pull spread stone"
+  }
+}

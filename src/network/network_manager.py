@@ -1,20 +1,25 @@
+#!/usr/bin/env python3
 """
 Network Manager for PlayerGold
-Manages testnet and mainnet configurations and switching
+
+Manages network configurations for testnet and mainnet:
+- Network-specific settings
+- Bootstrap node configurations
+- Network compatibility validation
+- IP validation for public-only networks
 """
 
 import logging
 from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
-import yaml
-from pathlib import Path
+import ipaddress
 
 logger = logging.getLogger(__name__)
 
 
 class NetworkType(Enum):
-    """Types of networks supported"""
+    """Network types supported by PlayerGold"""
     TESTNET = "testnet"
     MAINNET = "mainnet"
 
@@ -22,228 +27,252 @@ class NetworkType(Enum):
 @dataclass
 class NetworkConfig:
     """Configuration for a specific network"""
-    network_type: NetworkType
     network_id: str
+    network_type: NetworkType
     p2p_port: int
     api_port: int
     bootstrap_nodes: List[str]
-    min_nodes: int = 2
-    quorum_percentage: float = 0.66
+    genesis_pioneers_required: int = 2
+    consensus_threshold: float = 0.66  # 66%
+    block_interval: int = 10  # seconds
+    initial_block_reward: int = 1024  # PRGLD
+    halving_interval: int = 100000  # blocks
+    faucet_enabled: bool = True
+    reset_allowed: bool = False  # Only testnet allows reset
 
 
 class NetworkManager:
     """
-    Manages network configuration and switching between testnet and mainnet.
-    
-    Ensures proper network isolation and configuration management.
+    Manages network configurations and provides network-specific functionality
     """
     
-    def __init__(self, config_path: str = "config/default.yaml"):
-        self.config_path = config_path
-        self.current_network: Optional[NetworkType] = None
-        self.network_configs: dict[NetworkType, NetworkConfig] = {}
-        
-        self._load_network_configs()
-        logger.info("Network Manager initialized")
-    
-    def _load_network_configs(self):
-        """Load network configurations from config file"""
-        try:
-            config_file = Path(self.config_path)
-            if not config_file.exists():
-                logger.warning(f"Config file not found: {self.config_path}, using defaults")
-                self._load_default_configs()
-                return
-            
-            with open(config_file, 'r') as f:
-                config = yaml.safe_load(f)
-            
-            network_config = config.get('network', {})
-            
-            # Load testnet config
-            testnet_config = network_config.get('testnet', {})
-            
-            # Try to load testnet-specific config file
-            testnet_specific_config = self._load_testnet_specific_config()
-            if testnet_specific_config:
-                # Merge with specific testnet config
-                testnet_bootstrap_nodes = testnet_specific_config.get('bootstrap_nodes', testnet_config.get('bootstrap_nodes', ['testnet.playergold.es:18333']))
-                testnet_network_id = testnet_specific_config.get('network_id', testnet_config.get('network_id', 'playergold-testnet'))
-            else:
-                testnet_bootstrap_nodes = testnet_config.get('bootstrap_nodes', ['testnet.playergold.es:18333'])
-                testnet_network_id = testnet_config.get('network_id', 'playergold-testnet')
-            
-            self.network_configs[NetworkType.TESTNET] = NetworkConfig(
-                network_type=NetworkType.TESTNET,
-                network_id=testnet_network_id,
-                p2p_port=testnet_config.get('p2p_port', 18333),
-                api_port=testnet_config.get('api_port', 18080),
-                bootstrap_nodes=testnet_bootstrap_nodes,
-                min_nodes=network_config.get('min_nodes_for_consensus', 2),
-                quorum_percentage=network_config.get('quorum_percentage', 0.66)
-            )
-            
-            # Load mainnet config
-            mainnet_config = network_config.get('mainnet', {})
-            self.network_configs[NetworkType.MAINNET] = NetworkConfig(
-                network_type=NetworkType.MAINNET,
-                network_id=mainnet_config.get('network_id', 'playergold-mainnet'),
-                p2p_port=mainnet_config.get('p2p_port', 8333),
-                api_port=mainnet_config.get('api_port', 8080),
-                bootstrap_nodes=mainnet_config.get('bootstrap_nodes', [
-                    'seed1.playergold.es:8333',
-                    'seed2.playergold.es:8333'
-                ]),
-                min_nodes=network_config.get('min_nodes_for_consensus', 2),
-                quorum_percentage=network_config.get('quorum_percentage', 0.66)
-            )
-            
-            # Set current network from config
-            network_type_str = network_config.get('network_type', 'testnet')
-            self.current_network = NetworkType(network_type_str)
-            
-            logger.info(f"Loaded network configs: testnet and mainnet")
-            logger.info(f"Current network: {self.current_network.value}")
-            
-        except Exception as e:
-            logger.error(f"Error loading network configs: {e}")
-            self._load_default_configs()
-    
-    def _load_testnet_specific_config(self) -> Optional[dict]:
-        """Load testnet-specific configuration from config/testnet/testnet.yaml"""
-        try:
-            testnet_config_file = Path("config/testnet/testnet.yaml")
-            if testnet_config_file.exists():
-                with open(testnet_config_file, 'r') as f:
-                    testnet_config = yaml.safe_load(f)
-                logger.info("Loaded testnet-specific configuration")
-                return testnet_config
-        except Exception as e:
-            logger.warning(f"Could not load testnet-specific config: {e}")
-        return None
-    
-    def _load_default_configs(self):
-        """Load default network configurations"""
-        self.network_configs[NetworkType.TESTNET] = NetworkConfig(
-            network_type=NetworkType.TESTNET,
-            network_id="playergold-testnet",
-            p2p_port=18333,
-            api_port=18080,
-            bootstrap_nodes=['testnet.playergold.es:18333'],
-            min_nodes=2,
-            quorum_percentage=0.66
-        )
-        
-        self.network_configs[NetworkType.MAINNET] = NetworkConfig(
-            network_type=NetworkType.MAINNET,
-            network_id="playergold-mainnet",
-            p2p_port=8333,
-            api_port=8080,
-            bootstrap_nodes=[
-                'seed1.playergold.es:8333',
-                'seed2.playergold.es:8333'
-            ],
-            min_nodes=2,
-            quorum_percentage=0.66
-        )
-        
+    def __init__(self):
         self.current_network = NetworkType.TESTNET
-        logger.info("Loaded default network configurations")
+        self.networks = self._initialize_networks()
+        
+        # IP validation for public-only networks
+        self.private_ipv4_ranges = [
+            ipaddress.IPv4Network('10.0.0.0/8'),
+            ipaddress.IPv4Network('172.16.0.0/12'),
+            ipaddress.IPv4Network('192.168.0.0/16'),
+            ipaddress.IPv4Network('127.0.0.0/8'),  # Loopback
+            ipaddress.IPv4Network('169.254.0.0/16'),  # Link-local
+        ]
+        
+        self.private_ipv6_ranges = [
+            ipaddress.IPv6Network('fc00::/7'),  # Unique local
+            ipaddress.IPv6Network('fe80::/10'),  # Link-local
+            ipaddress.IPv6Network('::1/128'),   # Loopback
+        ]
+        
+        logger.info(f"Network Manager initialized - Current network: {self.current_network.value}")
+    
+    def _initialize_networks(self) -> dict:
+        """Initialize network configurations"""
+        return {
+            NetworkType.TESTNET: NetworkConfig(
+                network_id="playergold-testnet-v1",
+                network_type=NetworkType.TESTNET,
+                p2p_port=18080,
+                api_port=19080,
+                bootstrap_nodes=[
+                    # Add testnet bootstrap nodes here
+                    # "testnet-node1.playergold.com:18080",
+                    # "testnet-node2.playergold.com:18080",
+                ],
+                faucet_enabled=True,
+                reset_allowed=True  # Testnet allows blockchain reset
+            ),
+            
+            NetworkType.MAINNET: NetworkConfig(
+                network_id="playergold-mainnet-v1",
+                network_type=NetworkType.MAINNET,
+                p2p_port=18081,
+                api_port=19081,
+                bootstrap_nodes=[
+                    # Add mainnet bootstrap nodes here
+                    # "mainnet-node1.playergold.com:18081",
+                    # "mainnet-node2.playergold.com:18081",
+                ],
+                faucet_enabled=False,
+                reset_allowed=False  # Mainnet never allows reset
+            )
+        }
+    
+    def set_current_network(self, network_type: NetworkType):
+        """Set the current active network"""
+        self.current_network = network_type
+        logger.info(f"Switched to network: {network_type.value}")
     
     def get_current_network(self) -> NetworkType:
-        """Get the currently active network"""
+        """Get the current active network type"""
         return self.current_network
     
     def get_network_config(self, network_type: Optional[NetworkType] = None) -> NetworkConfig:
-        """
-        Get configuration for a specific network.
-        
-        Args:
-            network_type: Network to get config for. If None, returns current network.
-            
-        Returns:
-            NetworkConfig for the specified network
-        """
-        if network_type is None:
-            network_type = self.current_network
-        
-        return self.network_configs[network_type]
+        """Get configuration for a specific network (or current network)"""
+        network = network_type or self.current_network
+        return self.networks[network]
     
-    def switch_network(self, network_type: NetworkType) -> bool:
-        """
-        Switch to a different network.
+    def validate_network_compatibility(self, peer_network_id: str) -> bool:
+        """Validate if a peer's network is compatible with ours"""
+        current_config = self.get_network_config()
         
-        Args:
-            network_type: Network to switch to
+        # Exact network ID match required
+        compatible = peer_network_id == current_config.network_id
+        
+        if not compatible:
+            logger.warning(
+                f"Network incompatibility: peer={peer_network_id}, "
+                f"local={current_config.network_id}"
+            )
+        
+        return compatible
+    
+    def is_public_ip(self, ip_address: str) -> bool:
+        """Check if an IP address is public (not private/local)"""
+        try:
+            ip = ipaddress.ip_address(ip_address)
             
-        Returns:
-            bool: True if switch was successful
-        """
-        if network_type not in self.network_configs:
-            logger.error(f"Network type {network_type} not configured")
+            # Check IPv4 private ranges
+            if isinstance(ip, ipaddress.IPv4Address):
+                for private_range in self.private_ipv4_ranges:
+                    if ip in private_range:
+                        return False
+                return True
+            
+            # Check IPv6 private ranges
+            elif isinstance(ip, ipaddress.IPv6Address):
+                for private_range in self.private_ipv6_ranges:
+                    if ip in private_range:
+                        return False
+                return True
+            
             return False
-        
-        old_network = self.current_network
-        self.current_network = network_type
-        
-        logger.info(f"Switched network from {old_network.value} to {network_type.value}")
-        logger.warning("⚠️ Network switch requires node restart to take effect!")
-        
-        return True
+            
+        except ValueError:
+            logger.error(f"Invalid IP address: {ip_address}")
+            return False
     
-    def is_testnet(self) -> bool:
-        """Check if currently on testnet"""
-        return self.current_network == NetworkType.TESTNET
+    def validate_peer_ip(self, ip_address: str) -> dict:
+        """Validate a peer's IP address for network connection"""
+        result = {
+            'is_valid': False,
+            'is_public': False,
+            'rejection_reason': None,
+            'ip_info': {
+                'address': ip_address,
+                'type': None,
+                'is_private': False,
+                'is_loopback': False,
+                'is_link_local': False
+            }
+        }
+        
+        try:
+            ip = ipaddress.ip_address(ip_address)
+            
+            # Determine IP type
+            if isinstance(ip, ipaddress.IPv4Address):
+                result['ip_info']['type'] = 'IPv4'
+            elif isinstance(ip, ipaddress.IPv6Address):
+                result['ip_info']['type'] = 'IPv6'
+            
+            # Check IP properties
+            result['ip_info']['is_private'] = ip.is_private
+            result['ip_info']['is_loopback'] = ip.is_loopback
+            result['ip_info']['is_link_local'] = ip.is_link_local
+            
+            # TESTNET EXCEPTION: Allow local IPs for testing
+            if self.current_network == NetworkType.TESTNET:
+                # In testnet, allow localhost and private IPs for local testing
+                if ip.is_loopback or ip_address in ['127.0.0.1', '::1', 'localhost']:
+                    result['is_valid'] = True
+                    result['is_public'] = False  # Still mark as not public
+                    logger.debug(f"Valid testnet local IP: {ip_address}")
+                    return result
+                elif ip.is_private:
+                    # Allow private IPs in testnet for local network testing
+                    result['is_valid'] = True
+                    result['is_public'] = False
+                    logger.debug(f"Valid testnet private IP: {ip_address}")
+                    return result
+            
+            # Validate for public network (mainnet or strict mode)
+            if ip.is_private:
+                result['rejection_reason'] = f"Private IP address not allowed in {self.current_network.value}: {ip_address}"
+            elif ip.is_loopback:
+                result['rejection_reason'] = f"Loopback IP address not allowed in {self.current_network.value}: {ip_address}"
+            elif ip.is_link_local:
+                result['rejection_reason'] = f"Link-local IP address not allowed in {self.current_network.value}: {ip_address}"
+            else:
+                # IP is public
+                result['is_valid'] = True
+                result['is_public'] = True
+                logger.debug(f"Valid public IP: {ip_address}")
+            
+        except ValueError:
+            result['rejection_reason'] = f"Invalid IP address format: {ip_address}"
+        
+        return result
     
-    def is_mainnet(self) -> bool:
-        """Check if currently on mainnet"""
-        return self.current_network == NetworkType.MAINNET
+    def get_bootstrap_nodes(self, network_type: Optional[NetworkType] = None) -> List[str]:
+        """Get bootstrap nodes for a specific network"""
+        config = self.get_network_config(network_type)
+        return config.bootstrap_nodes.copy()
     
-    def get_network_info(self) -> dict:
-        """Get information about current network"""
-        config = self.get_network_config()
+    def add_bootstrap_node(self, node_address: str, network_type: Optional[NetworkType] = None):
+        """Add a bootstrap node to a network"""
+        config = self.get_network_config(network_type)
+        
+        if node_address not in config.bootstrap_nodes:
+            config.bootstrap_nodes.append(node_address)
+            logger.info(f"Added bootstrap node to {config.network_type.value}: {node_address}")
+        else:
+            logger.warning(f"Bootstrap node already exists: {node_address}")
+    
+    def remove_bootstrap_node(self, node_address: str, network_type: Optional[NetworkType] = None):
+        """Remove a bootstrap node from a network"""
+        config = self.get_network_config(network_type)
+        
+        if node_address in config.bootstrap_nodes:
+            config.bootstrap_nodes.remove(node_address)
+            logger.info(f"Removed bootstrap node from {config.network_type.value}: {node_address}")
+        else:
+            logger.warning(f"Bootstrap node not found: {node_address}")
+    
+    def can_reset_blockchain(self, network_type: Optional[NetworkType] = None) -> bool:
+        """Check if blockchain reset is allowed for a network"""
+        config = self.get_network_config(network_type)
+        return config.reset_allowed
+    
+    def is_faucet_enabled(self, network_type: Optional[NetworkType] = None) -> bool:
+        """Check if faucet is enabled for a network"""
+        config = self.get_network_config(network_type)
+        return config.faucet_enabled
+    
+    def get_network_info(self, network_type: Optional[NetworkType] = None) -> dict:
+        """Get comprehensive network information"""
+        config = self.get_network_config(network_type)
         
         return {
-            'network_type': self.current_network.value,
             'network_id': config.network_id,
+            'network_type': config.network_type.value,
             'p2p_port': config.p2p_port,
             'api_port': config.api_port,
             'bootstrap_nodes': config.bootstrap_nodes,
-            'min_nodes': config.min_nodes,
-            'quorum_percentage': config.quorum_percentage,
-            'is_testnet': self.is_testnet(),
-            'is_mainnet': self.is_mainnet()
+            'genesis_pioneers_required': config.genesis_pioneers_required,
+            'consensus_threshold': config.consensus_threshold,
+            'block_interval': config.block_interval,
+            'initial_block_reward': config.initial_block_reward,
+            'halving_interval': config.halving_interval,
+            'faucet_enabled': config.faucet_enabled,
+            'reset_allowed': config.reset_allowed,
+            'is_current': config.network_type == self.current_network
         }
     
-    def validate_network_compatibility(self, peer_network_id: str) -> bool:
-        """
-        Validate that a peer is on the same network.
-        
-        Args:
-            peer_network_id: Network ID from peer
-            
-        Returns:
-            bool: True if peer is on same network
-        """
-        current_config = self.get_network_config()
-        
-        if peer_network_id != current_config.network_id:
-            logger.warning(
-                f"Network mismatch: local={current_config.network_id}, "
-                f"peer={peer_network_id}"
-            )
-            return False
-        
-        return True
-    
-    def get_data_directory(self) -> str:
-        """Get data directory for current network"""
-        if self.is_testnet():
-            return "./data/testnet"
-        else:
-            return "./data/mainnet"
-    
-    def get_bootstrap_nodes(self) -> List[str]:
-        """Get bootstrap nodes for current network"""
-        config = self.get_network_config()
-        return config.bootstrap_nodes.copy()
+    def get_all_networks_info(self) -> dict:
+        """Get information about all configured networks"""
+        return {
+            network_type.value: self.get_network_info(network_type)
+            for network_type in NetworkType
+        }
