@@ -7,6 +7,8 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [transactions, setTransactions] = useState([]);
   const [networkStatus, setNetworkStatus] = useState({ connected: false, synced: false });
   const [isLoading, setIsLoading] = useState(false);
+  const [bootstrapService, setBootstrapService] = useState(null);
+  const [bootstrapState, setBootstrapState] = useState({ mode: 'network' });
   
   // Send transaction form state
   const [sendForm, setSendForm] = useState({
@@ -41,6 +43,37 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
       loadMiningData();
     }
   }, [wallet]);
+
+  // Initialize bootstrap service
+  useEffect(() => {
+    const initBootstrapService = async () => {
+      try {
+        if (window.electronAPI && window.electronAPI.getBootstrapService) {
+          const service = await window.electronAPI.getBootstrapService();
+          setBootstrapService(service);
+          
+          // Get initial state
+          const state = service.getState();
+          setBootstrapState(state);
+          
+          // Listen for state changes
+          const handleStateChange = (newState) => {
+            setBootstrapState(newState);
+          };
+          
+          service.on('stateChanged', handleStateChange);
+          
+          return () => {
+            service.removeListener('stateChanged', handleStateChange);
+          };
+        }
+      } catch (error) {
+        console.error('Error initializing bootstrap service:', error);
+      }
+    };
+    
+    initBootstrapService();
+  }, []);
 
   // Set up mining status listeners
   useEffect(() => {
@@ -197,12 +230,27 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     
     setIsLoading(true);
     try {
-      const result = await window.electronAPI.startMining(miningStatus.selectedModel, wallet.address);
-      if (result.success) {
-        alert(`¡Minería iniciada exitosamente!\nModelo: ${result.model.name}`);
-        loadMiningData(); // Refresh mining data
+      // If in bootstrap mode, notify bootstrap service about mining readiness
+      if (bootstrapService && bootstrapState.mode === 'pioneer') {
+        await bootstrapService.onWalletAddressCreated(wallet.address);
+        await bootstrapService.onMiningReadiness(miningStatus.selectedModel, {
+          id: miningStatus.selectedModel,
+          name: miningStatus.currentModel?.name || 'Selected Model'
+        });
+        
+        // Start peer discovery
+        await bootstrapService.startPeerDiscovery();
+        
+        alert('¡Bootstrap P2P iniciado!\nBuscando otros usuarios pioneros en la red...');
       } else {
-        alert(`Error al iniciar minería: ${result.error}`);
+        // Normal mining start
+        const result = await window.electronAPI.startMining(miningStatus.selectedModel, wallet.address);
+        if (result.success) {
+          alert(`¡Minería iniciada exitosamente!\nModelo: ${result.model.name}`);
+          loadMiningData(); // Refresh mining data
+        } else {
+          alert(`Error al iniciar minería: ${result.error}`);
+        }
       }
     } catch (error) {
       alert(`Error: ${error.message}`);
@@ -263,6 +311,65 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
       case 'overview':
         return (
           <div className="tab-content">
+            {/* Bootstrap Status Card */}
+            {bootstrapState.mode !== 'network' && (
+              <div className="bootstrap-status-card">
+                <h3>🚀 Estado del Bootstrap P2P</h3>
+                <div className="bootstrap-mode">
+                  <span className="mode-indicator">
+                    {bootstrapState.mode === 'pioneer' ? '🏴‍☠️' :
+                     bootstrapState.mode === 'discovery' ? '🔍' :
+                     bootstrapState.mode === 'genesis' ? '⚡' : '✅'}
+                  </span>
+                  <div className="mode-info">
+                    <strong>
+                      {bootstrapState.mode === 'pioneer' ? 'Modo Pionero' :
+                       bootstrapState.mode === 'discovery' ? 'Descubrimiento P2P' :
+                       bootstrapState.mode === 'genesis' ? 'Creación del Génesis' : 'Red Activa'}
+                    </strong>
+                    <p>
+                      {bootstrapState.mode === 'pioneer' ? 'Crea tu cartera y selecciona un modelo IA para comenzar' :
+                       bootstrapState.mode === 'discovery' ? 'Buscando otros usuarios pioneros en la red' :
+                       bootstrapState.mode === 'genesis' ? 'Coordinando con peers para crear el bloque génesis' : 'Red establecida'}
+                    </p>
+                  </div>
+                </div>
+                
+                {bootstrapState.mode === 'pioneer' && (
+                  <div className="bootstrap-instructions">
+                    <h4>Próximos pasos:</h4>
+                    <ol>
+                      <li>✅ Cartera creada: {wallet ? wallet.address.substring(0, 10) + '...' : 'Pendiente'}</li>
+                      <li>{bootstrapState.selectedModel ? '✅' : '⏳'} Ve a "Minería" y selecciona un modelo IA</li>
+                      <li>{bootstrapState.isReady ? '✅' : '⏳'} Haz clic en "Iniciar Minería" para comenzar</li>
+                    </ol>
+                  </div>
+                )}
+                
+                {bootstrapState.mode === 'discovery' && (
+                  <div className="discovery-status">
+                    <p><strong>Peers encontrados:</strong> {bootstrapState.discoveredPeers.length}</p>
+                    <p><strong>Estado:</strong> Buscando más usuarios pioneros...</p>
+                    <div className="discovery-animation">
+                      <div className="scanning-dots">
+                        <span>●</span><span>●</span><span>●</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {bootstrapState.mode === 'genesis' && (
+                  <div className="genesis-status">
+                    <p><strong>Participantes:</strong> {bootstrapState.discoveredPeers.length}</p>
+                    <p><strong>Estado:</strong> Creando bloque génesis...</p>
+                    <div className="genesis-animation">
+                      <div className="creating-spinner"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="balance-card">
               <h3>Balance Total</h3>
               <div className="balance-amount">
@@ -271,7 +378,8 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
               <button 
                 className="faucet-button" 
                 onClick={handleRequestFaucet}
-                disabled={isLoading}
+                disabled={isLoading || bootstrapState.mode !== 'network'}
+                title={bootstrapState.mode !== 'network' ? 'Disponible después del bootstrap' : ''}
               >
                 🚰 Solicitar Tokens Testnet
               </button>
@@ -509,6 +617,18 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
                   <li>Requiere hardware gaming: 4GB VRAM, 4 cores CPU, 8GB RAM</li>
                   <li>Modelos IA certificados: Gemma 3 4B, Mistral 3B, Qwen 3 4B</li>
                 </ul>
+                
+                {bootstrapState.mode !== 'network' && (
+                  <div className="bootstrap-mining-info">
+                    <h5>🚀 Modo Bootstrap P2P</h5>
+                    <p>
+                      {bootstrapState.mode === 'pioneer' ? 
+                        'Selecciona un modelo e inicia la minería para comenzar el descubrimiento P2P automático.' :
+                        'El sistema está estableciendo la red blockchain automáticamente.'
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="models-section">
@@ -570,16 +690,24 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
                     disabled={!miningStatus.selectedModel || isLoading}
                     onClick={handleStartMining}
                   >
-                    {isLoading ? 'Iniciando...' : '🚀 Iniciar Minería'}
+                    {isLoading ? 'Iniciando...' : 
+                     bootstrapState.mode === 'pioneer' ? '🚀 Iniciar Bootstrap P2P' : 
+                     '🚀 Iniciar Minería'}
                   </button>
                 ) : (
                   <button 
                     className="stop-mining-button"
                     onClick={handleStopMining}
-                    disabled={isLoading}
+                    disabled={isLoading || (bootstrapState.mode !== 'network' && bootstrapState.mode !== 'pioneer')}
                   >
                     {isLoading ? 'Deteniendo...' : '⏹️ Detener Minería'}
                   </button>
+                )}
+                
+                {bootstrapState.mode !== 'network' && bootstrapState.mode !== 'pioneer' && (
+                  <div className="bootstrap-mining-notice">
+                    <p>⏳ Minería disponible después de establecer la red blockchain</p>
+                  </div>
                 )}
               </div>
               
@@ -701,11 +829,23 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
         <div className="content-header">
           <h1>{navigationItems.find(item => item.id === activeTab)?.label || 'Dashboard'}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* Bootstrap Status Indicator */}
+            {bootstrapState.mode !== 'network' && (
+              <div style={{ fontSize: '12px', color: '#e74c3c', fontWeight: '600' }}>
+                Bootstrap: <span style={{ color: '#f39c12' }}>●</span> {
+                  bootstrapState.mode === 'pioneer' ? 'Modo Pionero' :
+                  bootstrapState.mode === 'discovery' ? 'Descubriendo Peers' :
+                  bootstrapState.mode === 'genesis' ? 'Creando Génesis' : 'Activo'
+                }
+              </div>
+            )}
+            
             <div style={{ fontSize: '12px', color: '#666' }}>
-              Red: <span style={{ color: '#28a745' }}>●</span> Conectado
+              Red: <span style={{ color: bootstrapState.mode === 'network' ? '#28a745' : '#f39c12' }}>●</span> 
+              {bootstrapState.mode === 'network' ? 'Conectado' : 'Estableciendo'}
             </div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-              Sincronización: 100%
+              Sincronización: {bootstrapState.mode === 'network' ? '100%' : 'En progreso'}
             </div>
           </div>
         </div>

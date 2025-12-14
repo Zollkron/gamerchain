@@ -29,25 +29,91 @@ El desarrollador (Zollkron) **NO se hace responsable de manera alguna** del uso 
 
 PlayerGold busca eliminar el sesgo humano y la corrupción de la gobernanza blockchain utilizando nodos de IA distribuidos para el consenso. Esto asegura una gestión justa, transparente e ideológicamente neutral de la economía gaming.
 
-## 🏗️ Arquitectura General
+## 🚀 Inicio Rápido
+
+### Instalación Automática (Windows)
+```bash
+# 1. Descargar o clonar el proyecto
+git clone https://github.com/Zollkron/gamerchain.git
+cd gamerchain
+
+# 2. Ejecutar setup automático
+setup.bat
+```
+
+### Instalación Manual (Linux/macOS)
+```bash
+# 1. Instalar dependencias
+pip install -r requirements.txt
+cd wallet && npm install && npm run build
+
+# 2. Iniciar nodo
+python scripts/start_multinode_network.py
+
+# 3. Iniciar wallet (en otra terminal)
+cd wallet && npm start
+```
+
+## 🏗️ Arquitectura
 
 ### Componentes Principales
 
-- **Nodos IA**: Nodos distribuidos ejecutando modelos de IA certificados (Gemma 3 4B, Mistral 3B, Qwen 3 4B)
-- **Consenso PoAIP**: Proof-of-AI-Participation asegurando que solo IAs puedan validar bloques
-- **Recompensas Equitativas**: 90% para validadores IA, 10% para stakers - sin ventaja económica
-- **Gestión de Fees**: 60% quemado (deflación), 30% mantenimiento de red, 10% liquidez
-- **Integración Gaming**: APIs y SDKs para integración perfecta en juegos
+- **🤖 Nodos IA**: Distribuidos ejecutando modelos certificados (Gemma 3 4B, Mistral 3B, Qwen 3 4B)
+- **⚖️ Consenso PoAIP**: Proof-of-AI-Participation - solo IAs validan bloques
+- **💰 Economía Justa**: 90% validadores IA, 10% stakers - sin ventaja económica
+- **🔥 Gestión de Fees**: 60% quemado → 0% (deflación progresiva), 30% → 60% mantenimiento
+- **🎮 Gaming APIs**: SDKs para Unity, Unreal, JavaScript y más
 
-### Características Clave
+### Características Implementadas
 
-- ✅ **Consenso Solo-IA**: Elimina corrupción y sesgo humano
-- ✅ **Distribución Justa**: Recompensas iguales independientemente del poder de hardware
-- ✅ **Resistente a Censura**: Sin restricciones ideológicas en transacciones
-- ✅ **Enfocado en Gaming**: Construido específicamente para economías gaming
-- ✅ **Multi-Plataforma**: Wallet de escritorio para Windows, macOS y Linux
-- ✅ **Testnet y Mainnet**: Redes separadas para pruebas y producción
-- ✅ **Escalabilidad Dinámica**: Funciona desde 2 nodos hasta miles
+- ✅ **Red Multi-Nodo**: Sistema P2P con bootstrap automático
+- ✅ **Wallet Electron**: Interfaz completa con minería IA integrada
+- ✅ **Consenso IA**: 66% threshold, validación cruzada entre nodos
+- ✅ **Sistema de Halving**: Redistribución automática de fees cada 100k bloques
+- ✅ **Modo Pionero**: Auto-descubrimiento y formación de red
+- ✅ **Testnet Segura**: Configuración sin exponer información sensible
+- ✅ **Build Unificado**: Script único para todos los tipos de compilación
+
+## 📁 Estructura del Proyecto
+
+```
+gamerchain/
+├── 🚀 setup.bat                    # Setup automático completo
+├── 📊 monitor_genesis_node.bat     # Monitor de red en tiempo real
+├── 📋 requirements.txt             # Dependencias Python
+├── 
+├── 📂 src/                         # Código fuente del blockchain
+│   ├── blockchain/                 # Core blockchain (bloques, transacciones)
+│   ├── consensus/                  # PoAIP, bootstrap, halving
+│   ├── p2p/                       # Red P2P y descubrimiento
+│   ├── ai_nodes/                   # Carga y verificación de modelos IA
+│   └── api/                       # APIs REST y GraphQL
+├── 
+├── 📂 wallet/                      # Wallet Electron
+│   ├── 🔨 build-complete.bat      # Build unificado (dev/prod/portable/installer)
+│   ├── src/                       # Código fuente React + Electron
+│   └── scripts/build-portable.js  # Generador de paquetes portables
+├── 
+├── 📂 scripts/                     # Scripts de utilidad
+│   ├── start_multinode_network.py # Iniciar red multi-nodo
+│   ├── setup_testnet_genesis.py   # Configurar testnet segura
+│   └── launch_testnet.py          # Lanzar testnet completa
+├── 
+├── 📂 docs/                        # Documentación consolidada
+│   ├── INSTALLATION_GUIDE.md      # Guía de instalación completa
+│   ├── TESTNET_SETUP_GUIDE.md     # Configuración de testnet segura
+│   └── DEVELOPMENT_HISTORY.md     # Historial de desarrollo
+├── 
+├── 📂 tests/                       # Tests unitarios y de integración
+│   ├── test_*.py                  # Tests unitarios Python
+│   ├── integration/               # Tests de integración
+│   └── wallet/src/**/__tests__/   # Tests del wallet
+└── 
+└── 📂 .kiro/specs/                 # Especificaciones de features
+    ├── auto-bootstrap-p2p/        # Spec bootstrap automático
+    ├── distributed-ai-nodes/      # Spec nodos IA distribuidos
+    └── halving-fee-redistribution/ # Spec redistribución de fees
+```
 
 ## 🌐 Redes
 

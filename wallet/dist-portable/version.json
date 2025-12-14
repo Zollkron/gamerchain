@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "buildDate": "2025-12-13T19:28:54.417Z",
+  "gitCommit": "ad18c9a1a724619174211f849b72fd97ecb25b07",
+  "buildEnvironment": {
+    "node": "v22.19.0",
+    "platform": "win32",
+    "arch": "x64"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "PlayerGold Wallet Portable",
+  "version": "1.0.0",
+  "description": "Portable distribution of PlayerGold Wallet with integrated blockchain node and automatic P2P bootstrap",
+  "created": "2025-12-13T19:28:54.416Z",
+  "platform": "win32",
+  "arch": "x64",
+  "features": {
+    "portableMode": true,
+    "pioneerModeInitialization": true,
+    "automaticEnvironmentDetection": true,
+    "noTechnicalConfiguration": true,
+    "p2pAutoBootstrap": true
+  },
+  "contents": {
+    "wallet": "Electron wallet application with React UI",
+    "backend": "Python blockchain node with P2P networking",
+    "launchers": "Platform-specific startup scripts with environment detection",
+    "readme": "Comprehensive user documentation in Spanish and English",
+    "dataStructure": "Automatic data directory creation and management"
+  },
+  "requirements": {
+    "python": "3.8+",
+    "nodejs": "16+",
+    "memory": "4GB minimum, 8GB recommended",
+    "storage": "2GB free space",
+    "network": "Internet connection required"
+  },
+  "supportedPlatforms": [
+    "Windows 10/11",
+    "macOS 10.15+",
+    "Ubuntu 18.04+",
+    "Debian 10+",
+    "CentOS 7+",
+    "Other Linux distributions with Python 3.8+ and Node.js 16+"
+  ]
+}

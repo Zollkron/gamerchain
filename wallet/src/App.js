@@ -3,6 +3,7 @@ import './App.css';
 import WalletSetup from './components/WalletSetup';
 import Dashboard from './components/Dashboard';
 import SyncProgress from './components/SyncProgress';
+import BootstrapStatus from './components/BootstrapStatus';
 
 function App() {
   const [wallets, setWallets] = useState([]);
@@ -10,6 +11,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
+  const [bootstrapService, setBootstrapService] = useState(null);
+  const [showBootstrap, setShowBootstrap] = useState(false);
 
   useEffect(() => {
     // Load wallets directly - no sync needed
@@ -17,6 +20,9 @@ function App() {
     
     // Initialize services in background without blocking UI
     initializeServicesInBackground();
+    
+    // Initialize bootstrap service
+    initializeBootstrapService();
   }, []);
 
   const initializeServicesInBackground = async () => {
@@ -28,6 +34,27 @@ function App() {
     } catch (error) {
       console.error('Error starting background services:', error);
     }
+  };
+
+  const initializeBootstrapService = async () => {
+    try {
+      if (window.electronAPI && window.electronAPI.getBootstrapService) {
+        const service = await window.electronAPI.getBootstrapService();
+        setBootstrapService(service);
+        
+        // Check if we need to show bootstrap UI
+        const state = service.getState();
+        setShowBootstrap(state.mode !== 'network');
+      }
+    } catch (error) {
+      console.error('Error initializing bootstrap service:', error);
+    }
+  };
+
+  const handleBootstrapComplete = () => {
+    setShowBootstrap(false);
+    // Refresh wallets and data after bootstrap completion
+    loadWallets();
   };
 
   const checkServicesAndLoadWallets = async () => {
@@ -203,6 +230,14 @@ function App() {
         onWalletChange={handleWalletChange}
         onWalletsUpdate={handleWalletsUpdate}
       />
+      
+      {/* Bootstrap Status Overlay */}
+      {showBootstrap && bootstrapService && (
+        <BootstrapStatus 
+          bootstrapService={bootstrapService}
+          onBootstrapComplete={handleBootstrapComplete}
+        />
+      )}
     </div>
   );
 }
