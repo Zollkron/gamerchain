@@ -80,5 +80,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onSyncError: (callback) => {
     ipcRenderer.on('sync-error', (event, error) => callback(error));
     return () => ipcRenderer.removeListener('sync-error', callback);
+  },
+  
+  // ========================================
+  // Network Validation Operations (MANDATORY)
+  // ========================================
+  
+  // Network validation status
+  getNetworkValidationStatus: () => ipcRenderer.invoke('get-network-validation-status'),
+  getCanonicalNetworkMap: () => ipcRenderer.invoke('get-canonical-network-map'),
+  getValidNodes: () => ipcRenderer.invoke('get-valid-nodes'),
+  refreshNetworkValidation: () => ipcRenderer.invoke('refresh-network-validation'),
+  forceNetworkRevalidation: () => ipcRenderer.invoke('force-network-revalidation'),
+  canWalletOperate: () => ipcRenderer.invoke('can-wallet-operate'),
+  
+  // Generic invoke method for flexibility
+  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  
+  // Event emitter for custom events
+  emit: (eventName, data) => {
+    // This is a placeholder for custom event emission
+    console.log(`Event emitted: ${eventName}`, data);
   }
 });

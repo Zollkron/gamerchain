@@ -4,6 +4,7 @@ import WalletSetup from './components/WalletSetup';
 import Dashboard from './components/Dashboard';
 import SyncProgress from './components/SyncProgress';
 import BootstrapStatus from './components/BootstrapStatus';
+import NetworkValidationStatus from './components/NetworkValidationStatus';
 
 function App() {
   const [wallets, setWallets] = useState([]);
@@ -13,17 +14,60 @@ function App() {
   const [syncError, setSyncError] = useState(null);
   const [bootstrapService, setBootstrapService] = useState(null);
   const [showBootstrap, setShowBootstrap] = useState(false);
+  
+  // Network validation state (MANDATORY)
+  const [networkValidated, setNetworkValidated] = useState(false);
+  const [validationChecked, setValidationChecked] = useState(false);
 
   useEffect(() => {
-    // Load wallets directly - no sync needed
-    loadWallets();
-    
-    // Initialize services in background without blocking UI
-    initializeServicesInBackground();
-    
-    // Initialize bootstrap service
-    initializeBootstrapService();
+    // MANDATORY: Check network validation first
+    checkNetworkValidation();
   }, []);
+  
+  useEffect(() => {
+    // Only proceed with wallet loading if network is validated
+    if (networkValidated) {
+      loadWallets();
+      initializeServicesInBackground();
+      initializeBootstrapService();
+    }
+  }, [networkValidated]);
+
+  /**
+   * MANDATORY: Check network validation before allowing wallet operation
+   */
+  const checkNetworkValidation = async () => {
+    try {
+      const canOperate = await window.electronAPI.invoke('can-wallet-operate');
+      
+      setNetworkValidated(canOperate.canOperate);
+      setValidationChecked(true);
+      
+      if (!canOperate.canOperate) {
+        console.warn('🚫 Wallet cannot operate:', canOperate.reason);
+      } else {
+        console.log('✅ Network validation successful, wallet can operate');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to check network validation:', error);
+      setNetworkValidated(false);
+      setValidationChecked(true);
+    }
+  };
+
+  /**
+   * Handle network validation completion
+   */
+  const handleValidationComplete = (isValid) => {
+    setNetworkValidated(isValid);
+    
+    if (isValid) {
+      console.log('✅ Network validation completed successfully');
+    } else {
+      console.warn('🚫 Network validation failed');
+    }
+  };
 
   const initializeServicesInBackground = async () => {
     try {
@@ -123,6 +167,27 @@ function App() {
     // Also save to localStorage as backup
     localStorage.setItem('playerGoldWallets', JSON.stringify(newWallets));
   };
+
+  // MANDATORY: Show network validation status first
+  if (!validationChecked) {
+    return (
+      <div className="App">
+        <div className="loading-screen">
+          <h1>🎮 PlayerGold Wallet</h1>
+          <p>Validating network...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // MANDATORY: Block wallet if network validation failed
+  if (!networkValidated) {
+    return (
+      <div className="App">
+        <NetworkValidationStatus onValidationComplete={handleValidationComplete} />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -224,6 +289,9 @@ function App() {
   // Show Dashboard when wallets exist
   return (
     <div className="App">
+      {/* Network Validation Status (always visible when validated) */}
+      <NetworkValidationStatus onValidationComplete={handleValidationComplete} />
+      
       <Dashboard 
         wallet={currentWallet}
         wallets={wallets}

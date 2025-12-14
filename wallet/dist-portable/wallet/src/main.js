@@ -3,7 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
 
+// Import network validator for mandatory validation
+const NetworkValidator = require('./services/NetworkValidator');
+
 let mainWindow;
+let networkValidator;
+let networkValidationResult = null;
 
 // Portable mode detection and configuration
 const isPortableMode = process.env.PLAYERGOLD_PORTABLE === 'true' || process.argv.includes('--portable');
@@ -77,7 +82,23 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  // MANDATORY NETWORK VALIDATION BEFORE WALLET CAN OPERATE
+  console.log('🔒 Starting mandatory network validation...');
+  
+  networkValidator = new NetworkValidator();
+  networkValidationResult = await networkValidator.validateNetworkOrFail();
+  
+  if (!networkValidationResult.success) {
+    // Show error dialog and prevent wallet from operating
+    await showNetworkValidationError(networkValidationResult);
+    app.quit();
+    return;
+  }
+  
+  console.log('✅ Network validation successful, wallet can operate');
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -97,6 +118,40 @@ app.on('web-contents-created', (event, contents) => {
     event.preventDefault();
   });
 });
+
+/**
+ * Show network validation error dialog
+ */
+async function showNetworkValidationError(validationResult) {
+  const result = await dialog.showMessageBox({
+    type: 'error',
+    title: 'PlayerGold - Network Validation Failed',
+    message: 'Cannot Start Wallet',
+    detail: `${validationResult.error}\n\n` +
+           'PlayerGold requires internet connection to validate the canonical blockchain network.\n\n' +
+           'This prevents accidental forks and ensures you connect to the correct network.\n\n' +
+           'Please check your internet connection and try again.',
+    buttons: ['Retry', 'Exit'],
+    defaultId: 0,
+    cancelId: 1
+  });
+  
+  if (result.response === 0) {
+    // Retry validation
+    console.log('🔄 Retrying network validation...');
+    networkValidationResult = await networkValidator.validateNetworkOrFail();
+    
+    if (networkValidationResult.success) {
+      console.log('✅ Network validation successful on retry');
+      createWindow();
+      return;
+    } else {
+      // Still failed, show error again
+      await showNetworkValidationError(networkValidationResult);
+      app.quit();
+    }
+  }
+}
 
 // Blockchain sync service handlers
 ipcMain.handle('initialize-blockchain-services', async () => {
@@ -863,6 +918,156 @@ ipcMain.handle('get-blockchain-network-status', async () => {
     return {
       success: false,
       error: error.message
+    };
+  }
+});
+
+// ========================================
+// Network Validator Handlers (MANDATORY)
+// ========================================
+
+ipcMain.handle('get-network-validation-status', async () => {
+  try {
+    if (!networkValidator) {
+      return {
+        success: false,
+        error: 'Network validator not initialized'
+      };
+    }
+    
+    return {
+      success: true,
+      status: networkValidator.getValidationStatus(),
+      validationResult: networkValidationResult
+    };
+  } catch (error) {
+    console.error('Error getting network validation status:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-canonical-network-map', async () => {
+  try {
+    if (!networkValidator) {
+      return {
+        success: false,
+        error: 'Network validator not initialized'
+      };
+    }
+    
+    const networkMap = networkValidator.getCanonicalNetworkMap();
+    
+    return {
+      success: true,
+      networkMap: networkMap
+    };
+  } catch (error) {
+    console.error('Error getting canonical network map:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-valid-nodes', async () => {
+  try {
+    if (!networkValidator) {
+      return {
+        success: false,
+        error: 'Network validator not initialized'
+      };
+    }
+    
+    const validNodes = networkValidator.getValidNodes();
+    
+    return {
+      success: true,
+      nodes: validNodes
+    };
+  } catch (error) {
+    console.error('Error getting valid nodes:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('refresh-network-validation', async () => {
+  try {
+    if (!networkValidator) {
+      return {
+        success: false,
+        error: 'Network validator not initialized'
+      };
+    }
+    
+    const refreshed = await networkValidator.refreshNetworkMap();
+    
+    return {
+      success: refreshed,
+      message: refreshed ? 'Network map refreshed successfully' : 'Failed to refresh network map'
+    };
+  } catch (error) {
+    console.error('Error refreshing network validation:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('force-network-revalidation', async () => {
+  try {
+    if (!networkValidator) {
+      return {
+        success: false,
+        error: 'Network validator not initialized'
+      };
+    }
+    
+    console.log('🔄 Forcing network re-validation...');
+    networkValidationResult = await networkValidator.forceRevalidation();
+    
+    if (!networkValidationResult.success) {
+      // Show error dialog if re-validation fails
+      await showNetworkValidationError(networkValidationResult);
+    }
+    
+    return networkValidationResult;
+  } catch (error) {
+    console.error('Error forcing network revalidation:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('can-wallet-operate', async () => {
+  try {
+    if (!networkValidator) {
+      return {
+        canOperate: false,
+        reason: 'Network validator not initialized'
+      };
+    }
+    
+    const canOperate = networkValidator.canWalletOperate();
+    
+    return {
+      canOperate: canOperate,
+      reason: canOperate ? 'Network validation successful' : 'Network validation failed or incomplete'
+    };
+  } catch (error) {
+    console.error('Error checking if wallet can operate:', error);
+    return {
+      canOperate: false,
+      reason: error.message
     };
   }
 });

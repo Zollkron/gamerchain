@@ -6,18 +6,13 @@
   "homepage": "./",
   "scripts": {
     "start": "electron .",
-    "electron": "electron .",
     "dev": "concurrently \"npm run react-dev\" \"wait-on http://localhost:3000 && electron .\"",
     "react-dev": "react-app-rewired start",
     "build": "react-app-rewired build",
     "electron-build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never",
-    "package-portable": "node scripts/package-for-distribution.js",
     "build-portable": "node scripts/build-portable.js",
-    "dist-portable": "npm run build && npm run package-portable",
-    "dist-portable-enhanced": "node scripts/build-portable.js",
-    "test": "react-app-rewired test",
-    "eject": "react-scripts eject"
+    "build-complete": "build-complete.bat",
+    "test": "react-app-rewired test"
   },
   "build": {
     "appId": "com.playergold.wallet",
@@ -69,8 +64,8 @@
     "electron-store": "^8.1.0",
     "hdkey": "^2.1.0",
     "qrcode": "^1.5.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-router-dom": "^6.8.0",
     "secp256k1": "^5.0.0",
     "speakeasy": "^2.0.0"
@@ -83,19 +78,19 @@
     "buffer": "^6.0.3",
     "concurrently": "^7.6.0",
     "crypto-browserify": "^3.12.1",
-    "electron": "^27.0.0",
-    "electron-builder": "^24.6.4",
+    "electron": "^27.3.11",
+    "electron-builder": "^24.13.3",
     "fast-check": "^4.4.0",
     "https-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
     "react-app-rewired": "^2.2.1",
-    "react-scripts": "5.0.1",
+    "react-scripts": "^5.0.1",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "url": "^0.11.4",
-    "wait-on": "^7.0.1"
+    "wait-on": "^7.2.0"
   },
   "browserslist": {
     "production": [

@@ -8,7 +8,7 @@ echo ===============================================
 echo.
 
 REM Automatic Environment Detection and Configuration
-echo 🔍 Detectando entorno del sistema...
+echo Detectando entorno del sistema...
 
 REM Check if Python is installed
 python --version >nul 2>&1
@@ -70,7 +70,7 @@ if not exist "data\temp" mkdir data\temp
 REM Pioneer Mode Initialization for New Installations
 if not exist "data\bootstrap-state.json" (
     echo 🚀 Primera instalación detectada - Inicializando modo pionero...
-    echo {"mode":"pioneer","initialized":true,"timestamp":"%date% %time%","version":"1.0.0","portable":true} > data\bootstrap-state.json
+    echo {"mode":"pioneer","initialized":true,"timestamp":"2025-12-14","version":"1.0.0","portable":true} > data\bootstrap-state.json
     echo ✅ Modo pionero inicializado. ¡Listo para crear la red!
     echo.
     echo 🎮 ¿Qué significa esto?

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import BlockchainNodeStatus from './BlockchainNodeStatus';
+import PioneerNodeStatus from './PioneerNodeStatus';
 
 const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -311,6 +312,9 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
       case 'overview':
         return (
           <div className="tab-content">
+            {/* Pioneer Node Status - Always show for network validation */}
+            <PioneerNodeStatus />
+            
             {/* Bootstrap Status Card */}
             {bootstrapState.mode !== 'network' && (
               <div className="bootstrap-status-card">

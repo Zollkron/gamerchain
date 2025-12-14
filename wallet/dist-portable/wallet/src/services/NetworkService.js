@@ -1,4 +1,5 @@
 const axios = require('axios');
+const NetworkCoordinatorClient = require('./NetworkCoordinatorClient');
 
 class NetworkService {
   constructor() {
@@ -22,6 +23,80 @@ class NetworkService {
     
     // Local blockchain node service (lazy loaded to avoid circular dependency)
     this._blockchainNodeService = null;
+    
+    // Network Coordinator client
+    this.coordinatorClient = new NetworkCoordinatorClient(
+      'https://playergold.es',  // Main coordinator
+      [
+        'https://backup1.playergold.es',  // Backup coordinators
+        'https://backup2.playergold.es'
+      ]
+    );
+    
+    // Auto-register with coordinator when service starts
+    this.initializeCoordinator();
+  }
+  
+  /**
+   * Initialize Network Coordinator integration
+   */
+  async initializeCoordinator() {
+    try {
+      console.log('🌐 Initializing Network Coordinator integration...');
+      
+      // Register node with coordinator
+      const nodeType = this.isGenesisNode() ? 'genesis' : 'regular';
+      const success = await this.coordinatorClient.registerNode(nodeType);
+      
+      if (success) {
+        console.log('✅ Successfully registered with Network Coordinator');
+        
+        // Get initial network map
+        await this.updateNetworkMap();
+      } else {
+        console.warn('⚠️ Failed to register with Network Coordinator, continuing without it');
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Network Coordinator initialization failed:', error.message);
+    }
+  }
+  
+  /**
+   * Check if this node should be a genesis node
+   */
+  isGenesisNode() {
+    // In a real implementation, this would check configuration or capabilities
+    // For now, we'll make it configurable via environment variable
+    return process.env.PLAYERGOLD_GENESIS_NODE === 'true';
+  }
+  
+  /**
+   * Update network map from coordinator
+   */
+  async updateNetworkMap() {
+    try {
+      const networkMap = await this.coordinatorClient.getNetworkMap(1000, 50); // 1000km radius, max 50 nodes
+      
+      if (networkMap) {
+        console.log(`📊 Network map updated: ${networkMap.active_nodes} active nodes`);
+        
+        // Store network map for use by other services
+        this.networkMap = networkMap;
+        
+        // Emit event for other components
+        if (typeof window !== 'undefined' && window.electronAPI) {
+          window.electronAPI.emit('network-map-updated', networkMap);
+        }
+        
+        return networkMap;
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Failed to update network map:', error.message);
+    }
+    
+    return null;
   }
   
   /**
@@ -455,6 +530,111 @@ class NetworkService {
    */
   getAddressUrl(address) {
     return `${this.config.explorerUrl}/address/${address}`;
+  }
+
+  // ========================================
+  // Network Coordinator Methods
+  // ========================================
+
+  /**
+   * Get network statistics from coordinator
+   */
+  async getNetworkCoordinatorStats() {
+    try {
+      const stats = await this.coordinatorClient.getNetworkStats();
+      return {
+        success: true,
+        stats: stats
+      };
+    } catch (error) {
+      console.warn('⚠️ Failed to get coordinator stats:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get current network map
+   */
+  getNetworkMap() {
+    return this.networkMap;
+  }
+
+  /**
+   * Force refresh network map
+   */
+  async refreshNetworkMap() {
+    return await this.updateNetworkMap();
+  }
+
+  /**
+   * Get nearby nodes based on current location
+   */
+  async getNearbyNodes(maxDistanceKm = 500, limit = 20) {
+    try {
+      const networkMap = await this.coordinatorClient.getNetworkMap(maxDistanceKm, limit);
+      return {
+        success: true,
+        nodes: networkMap ? networkMap.active_nodes : 0,
+        map: networkMap
+      };
+    } catch (error) {
+      console.warn('⚠️ Failed to get nearby nodes:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        nodes: 0
+      };
+    }
+  }
+
+  /**
+   * Update node status for coordinator
+   */
+  async updateNodeStatus(blockchainHeight, connectedPeers, aiModelLoaded = false, miningActive = false) {
+    try {
+      const success = await this.coordinatorClient.sendKeepalive(
+        blockchainHeight,
+        connectedPeers,
+        aiModelLoaded,
+        miningActive
+      );
+      
+      return {
+        success: success,
+        message: success ? 'Node status updated' : 'Failed to update node status'
+      };
+    } catch (error) {
+      console.warn('⚠️ Failed to update node status:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get coordinator connection status
+   */
+  getCoordinatorStatus() {
+    return {
+      nodeId: this.coordinatorClient.nodeId,
+      isRegistered: this.coordinatorClient.keepaliveInterval !== null,
+      lastMapUpdate: this.coordinatorClient.lastMapUpdate,
+      coordinatorUrl: this.coordinatorClient.coordinatorUrl,
+      backupUrls: this.coordinatorClient.backupUrls
+    };
+  }
+
+  /**
+   * Shutdown coordinator client
+   */
+  shutdownCoordinator() {
+    if (this.coordinatorClient) {
+      this.coordinatorClient.shutdown();
+    }
   }
 }
 

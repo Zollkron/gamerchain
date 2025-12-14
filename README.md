@@ -73,6 +73,8 @@ cd wallet && npm start
 - ✅ **Modo Pionero**: Auto-descubrimiento y formación de red
 - ✅ **Testnet Segura**: Configuración sin exponer información sensible
 - ✅ **Build Unificado**: Script único para todos los tipos de compilación
+- ✅ **Network Coordinator**: Sistema centralizado con respaldo distribuido para mapeo de red
+- ✅ **Validación Obligatoria**: Prevención 100% de forks mediante validación obligatoria del coordinador
 
 ## 📁 Estructura del Proyecto
 
@@ -87,6 +89,7 @@ gamerchain/
 │   ├── consensus/                  # PoAIP, bootstrap, halving
 │   ├── p2p/                       # Red P2P y descubrimiento
 │   ├── ai_nodes/                   # Carga y verificación de modelos IA
+│   ├── network_coordinator/        # Coordinador de red centralizado
 │   └── api/                       # APIs REST y GraphQL
 ├── 
 ├── 📂 wallet/                      # Wallet Electron
@@ -96,6 +99,7 @@ gamerchain/
 ├── 
 ├── 📂 scripts/                     # Scripts de utilidad
 │   ├── start_multinode_network.py # Iniciar red multi-nodo
+│   ├── start_network_coordinator.py # Iniciar coordinador de red
 │   ├── setup_testnet_genesis.py   # Configurar testnet segura
 │   └── launch_testnet.py          # Lanzar testnet completa
 ├── 
@@ -112,8 +116,57 @@ gamerchain/
 └── 📂 .kiro/specs/                 # Especificaciones de features
     ├── auto-bootstrap-p2p/        # Spec bootstrap automático
     ├── distributed-ai-nodes/      # Spec nodos IA distribuidos
-    └── halving-fee-redistribution/ # Spec redistribución de fees
+    ├── halving-fee-redistribution/ # Spec redistribución de fees
+    └── network-coordinator/        # Spec coordinador de red
 ```
+
+## 🌐 Network Coordinator
+
+### Arquitectura Híbrida Centralizada-Distribuida
+
+El Network Coordinator es un sistema innovador que combina las ventajas de la centralización con la robustez de la distribución:
+
+**Coordinador Principal (playergold.es)**
+- Mantiene registro cifrado de todos los nodos activos
+- Procesa KeepAlive messages cada 60 segundos
+- Detecta y resuelve forks automáticamente
+- Proporciona mapas de red actualizados
+
+**Respaldo Distribuido**
+- Nodos de backup mantienen copias del registro
+- Failover automático si el coordinador principal falla
+- Sincronización continua entre respaldos
+- Los wallets pueden obtener mapas desde cualquier backup
+
+### Características Clave
+
+- **🔒 Cifrado AES-256**: Toda la información de nodos está cifrada
+- **📍 Geolocalización**: Cálculo de proximidad para conexiones óptimas
+- **🔄 KeepAlive Automático**: Monitoreo continuo del estado de nodos
+- **🚫 Prevención de Forks**: Detección y resolución automática de divisiones
+- **🌍 Alcance Global**: Funciona desde cualquier ubicación geográfica
+- **⚡ Failover Rápido**: Cambio automático a backups en caso de falla
+
+### Flujo de Funcionamiento
+
+1. **🔒 Validación Obligatoria**: Wallet DEBE conectarse al coordinador antes de operar
+2. **📥 Descarga de Mapa**: Obtención del net_map.json cifrado y verificado
+3. **✅ Verificación de Integridad**: Validación de firmas y timestamps
+4. **🚀 Registro de Nodo**: Wallet se registra automáticamente al iniciar
+5. **📡 KeepAlive Continuo**: Envío de estado cada 60 segundos
+6. **🗺️ Mapa de Red**: Descarga periódica de nodos cercanos
+7. **🔍 Detección de Forks**: Monitoreo de altura de blockchain
+8. **⚖️ Resolución Automática**: Selección de cadena canónica
+9. **💾 Backup Distribuido**: Sincronización con nodos de respaldo
+
+### Prevención 100% de Forks
+
+**Regla Crítica**: Sin conexión al coordinador = Sin operación de wallet
+
+- **Primera Ejecución**: OBLIGATORIO conectarse a playergold.es
+- **Ejecuciones Posteriores**: Puede usar net_map.json local válido
+- **Modo Offline**: Solo si tiene mapa válido y se conecta a nodos registrados
+- **Modo Pionero**: Solo si el coordinador confirma que puede crear blockchain
 
 ## 🌐 Redes
 

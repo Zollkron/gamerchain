@@ -90,8 +90,58 @@ gamerchain/
 4. **Usabilidad**: Setup automático con opciones claras
 5. **Profesionalismo**: Estructura limpia y bien organizada
 
+### 🌐 Network Coordinator Implementado
+
+#### Sistema Centralizado con Respaldo Distribuido
+- ✅ **Nuevo**: `src/network_coordinator/` - Sistema completo de coordinación de red
+  - Servidor FastAPI con cifrado AES-256
+  - Base de datos SQLite para registro de nodos
+  - Sistema de KeepAlive automático
+  - Detección y resolución de forks
+  - Backup distribuido con failover
+- ✅ **Nuevo**: `wallet/src/services/NetworkCoordinatorClient.js` - Cliente para wallets
+- ✅ **Nuevo**: `wallet/src/components/NetworkCoordinatorStatus.js` - UI para estado del coordinador
+- ✅ **Nuevo**: `scripts/start_network_coordinator.py` - Script para ejecutar coordinador
+
+#### Características del Network Coordinator
+- **🔒 Seguridad**: Cifrado AES-256 con salt único para datos de nodos
+- **📍 Geolocalización**: Cálculo de proximidad para conexiones óptimas
+- **🔄 KeepAlive**: Monitoreo automático cada 60 segundos
+- **🚫 Prevención de Forks**: Detección y resolución automática
+- **🌍 Respaldo Global**: Sistema distribuido con múltiples backups
+- **⚡ Failover**: Cambio automático a backups en caso de falla
+
+#### Integración Completa
+- **Registro Automático**: Wallets se registran automáticamente al iniciar
+- **Mapa de Red**: Descarga de nodos cercanos basada en geolocalización
+- **Estado en Tiempo Real**: UI que muestra estadísticas de red actualizadas
+- **Fallback Robusto**: Funciona aunque el coordinador principal esté caído
+
+#### 🔒 Validación Obligatoria Anti-Fork (CRÍTICO)
+- ✅ **Nuevo**: `wallet/src/services/NetworkValidator.js` - Validador obligatorio de red
+- ✅ **Nuevo**: `wallet/src/components/NetworkValidationStatus.js` - UI de validación
+- ✅ **Modificado**: `wallet/src/main.js` - Validación obligatoria al inicio
+- ✅ **Modificado**: `wallet/src/App.js` - Bloqueo de wallet sin validación
+
+#### Características Anti-Fork
+- **🚫 Bloqueo Total**: Wallet NO puede operar sin validación exitosa
+- **🌐 Conexión Obligatoria**: Primera ejecución requiere internet y coordinador
+- **📄 net_map.json**: Archivo local cifrado con nodos válidos
+- **🔄 Validación Continua**: Verificación de integridad y timestamps
+- **⚡ Modo Offline**: Solo con mapa válido y conexión a nodos registrados
+- **🚀 Modo Pionero**: Solo si coordinador confirma que puede crear blockchain
+
+#### Flujo de Seguridad
+1. **Inicio de Wallet** → Validación obligatoria del coordinador
+2. **Sin Internet** → Wallet NO se abre (primera vez)
+3. **Con net_map.json válido** → Puede operar offline conectándose a nodos registrados
+4. **Mapa expirado** → Debe renovar desde coordinador
+5. **Fork detectado** → Coordinador resuelve automáticamente
+
 ### 🚀 Próximos Pasos
 
+- Despliegue del coordinador en playergold.es
+- Configuración de nodos de backup distribuidos
 - Commit limpio con la nueva estructura
 - Preparación para mainnet
 - Documentación de APIs para desarrolladores

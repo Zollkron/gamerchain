@@ -1,0 +1,11 @@
+{
+  "encrypted_data": "dev_encrypted_data",
+  "salt": "dev_salt",
+  "timestamp": "2025-12-14T18:57:26.316Z",
+  "signature": "dev_signature",
+  "version": "1.0.0-dev",
+  "active_nodes": 1,
+  "genesis_nodes": 0,
+  "coordinator_url": "https://playergold.es",
+  "development_mode": true
+}
