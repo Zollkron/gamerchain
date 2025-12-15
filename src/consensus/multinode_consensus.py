@@ -119,7 +119,6 @@ class HalvingManager:
             return new_distribution
         
         return None
-            logger.info(f"📅 Next halving at block: {self.next_halving_block}")
 
 
 class MultiNodeConsensus:

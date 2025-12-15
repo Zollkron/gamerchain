@@ -6,6 +6,7 @@
  */
 
 const EventEmitter = require('events');
+const axios = require('axios');
 
 /**
  * Network states for the blockchain
@@ -178,20 +179,22 @@ class GenesisStateManager extends EventEmitter {
           console.warn('Network status check failed:', error.message);
         }
         
-        // Try to get balance for a test address - if successful, genesis exists
+        // Try to get actual genesis block information
         try {
-          const testAddress = 'PG0000000000000000000000000000000000000000';
-          const balanceResult = await this.networkService.getBalance(testAddress);
+          const apiUrl = this.networkService.getBestApiUrl();
+          const response = await axios.get(`${apiUrl}/api/v1/block/0`, {
+            timeout: 5000
+          });
           
-          if (balanceResult.success && !balanceResult.requiresGenesis) {
-            // If balance query succeeds without requiring genesis, genesis exists
-            this.genesisState = new GenesisState(true, null, null, true);
-            console.log('Genesis block confirmed via balance query');
+          if (response.data && response.data.block && response.data.block.height === 0) {
+            // Real genesis block found
+            this.genesisState = new GenesisState(true, response.data.block, null, true);
+            console.log('✅ Real genesis block confirmed:', response.data.block.hash);
             this.emit('genesisStateChanged', this.genesisState);
             return this.genesisState;
           }
         } catch (error) {
-          console.warn('Balance check failed:', error.message);
+          console.log('🔍 No genesis block found - this is expected for bootstrap mode');
         }
       }
       
