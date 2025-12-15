@@ -139,7 +139,7 @@ const SyncProgress = ({ onSyncComplete, onError }) => {
   const checkServicesRunning = async () => {
     try {
       // Check API service
-      const response = await fetch('http://127.0.0.1:18080/api/v1/health', {
+      const response = await fetch('http://127.0.0.1:19080/api/v1/health', {
         method: 'GET',
         timeout: 3000
       });

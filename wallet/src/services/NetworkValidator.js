@@ -154,7 +154,7 @@ class NetworkValidator {
             active_nodes: 1,
             genesis_nodes: 0,
             coordinator_url: this.coordinatorClient.coordinatorUrl,
-            development_mode: true
+            bootstrap_mode: true
         };
         
         console.log('🔧 Created development network map');
@@ -235,17 +235,17 @@ class NetworkValidator {
         // 1. Very few active nodes (< 5)
         // 2. No genesis nodes exist yet
         // 3. Network is in bootstrap phase
-        // 4. Development mode (coordinator not fully functional)
+        // 4. Bootstrap mode (coordinator establishing network)
         
         const activeNodes = networkMap.active_nodes || 0;
         const genesisNodes = networkMap.genesis_nodes || 0;
-        const isDevelopmentMode = networkMap.development_mode || false;
+        const isBootstrapMode = networkMap.bootstrap_mode || false;
         
-        const isPioneer = activeNodes < 5 || genesisNodes === 0 || isDevelopmentMode;
+        const isPioneer = activeNodes < 5 || genesisNodes === 0 || isBootstrapMode;
         
         if (isPioneer) {
-            if (isDevelopmentMode) {
-                console.log('🔧 DEVELOPMENT MODE: Acting as pioneer node for testing');
+            if (isBootstrapMode) {
+                console.log('🔧 BOOTSTRAP MODE: Network is being established');
             } else {
                 console.log('🚀 PIONEER MODE: This node can help bootstrap the network');
             }
@@ -313,21 +313,16 @@ class NetworkValidator {
         }
         
         try {
-            // In a real implementation, we would decrypt the network map here
-            // For now, return mock data based on map metadata
-            const mockNodes = [];
-            
-            for (let i = 0; i < this.canonicalNetworkMap.active_nodes; i++) {
-                mockNodes.push({
-                    nodeId: `node_${i}`,
-                    ip: `192.168.1.${100 + i}`, // Mock IPs
-                    port: 18333,
-                    isGenesis: i < this.canonicalNetworkMap.genesis_nodes,
-                    lastSeen: new Date().toISOString()
-                });
+            // Extract real node information from network map
+            // Return empty array if no real nodes are available
+            if (!this.canonicalNetworkMap || !this.canonicalNetworkMap.active_nodes) {
+                return [];
             }
             
-            return mockNodes;
+            // In a real implementation, we would decrypt the network map here
+            // For now, return empty array since we don't have real node data
+            console.warn('⚠️ Network map decryption not implemented - returning empty node list');
+            return [];
             
         } catch (error) {
             console.error('❌ Failed to extract nodes from network map:', error.message);

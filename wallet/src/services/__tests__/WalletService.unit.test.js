@@ -35,7 +35,7 @@ describe('WalletService Core Functionality', () => {
         'PG' + 'A'.repeat(38),
         'PG' + 'F'.repeat(38),
         'PG' + '123456789abcdef'.repeat(2) + '12345678',
-        'PGabcdef1234567890abcdef1234567890abcdef12'
+        'PGabcdef1234567890abcdef1234567890abcdef'
       ];
       
       for (const address of validAddresses) {

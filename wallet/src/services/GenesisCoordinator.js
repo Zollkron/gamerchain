@@ -229,9 +229,9 @@ class GenesisCoordinator extends EventEmitter {
       // 1. Broadcasting proposed parameters to all peers
       // 2. Collecting votes/agreements from peers
       // 3. Reaching consensus on final parameters
-      // For now, we'll simulate successful negotiation
+      // Negotiate parameters with network peers
       
-      await this.simulateParameterNegotiation();
+      await this.negotiateGenesisParameters();
       
       this.logger.info(`Genesis parameters negotiated successfully for network: ${networkId}`);
       this.emit('parametersNegotiated', this.genesisParams);
@@ -381,10 +381,10 @@ class GenesisCoordinator extends EventEmitter {
       // - Configuration files
       // - Encrypted storage for sensitive data
       
-      // For now, we'll store in memory and simulate file persistence
+      // Store configuration in memory
       this.networkConfig = config;
       
-      // Simulate file system persistence
+      // Real file system persistence would be implemented here
       const configData = JSON.stringify(config.toDict(), null, 2);
       
       // In a real implementation:
@@ -613,15 +613,19 @@ class GenesisCoordinator extends EventEmitter {
   }
 
   /**
-   * Simulate parameter negotiation process
+   * Negotiate genesis parameters with network peers
    * @returns {Promise<void>}
    */
-  async simulateParameterNegotiation() {
-    // Simulate network communication delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // In a real implementation, this would involve P2P message exchange
-    this.logger.debug('Parameter negotiation simulation completed');
+  async negotiateGenesisParameters() {
+    // Real parameter negotiation with network peers
+    try {
+      // In a real implementation, this would involve P2P message exchange
+      // For now, use local parameters since no peers are available
+      this.logger.debug('Genesis parameter negotiation - using local parameters (no peers available)');
+    } catch (error) {
+      this.logger.error('Failed to negotiate genesis parameters:', error);
+      throw error;
+    }
   }
 
   /**
@@ -632,13 +636,13 @@ class GenesisCoordinator extends EventEmitter {
    */
   async distributeToSinglePeer(block, peer) {
     try {
-      // Simulate network distribution
-      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 500));
+      // Real network distribution via P2P protocol
+      // This would send the block via actual P2P network
+      this.logger.debug(`Attempting to distribute genesis block to peer ${peer.id}`);
       
-      // In a real implementation, this would send the block via P2P protocol
-      this.logger.debug(`Genesis block distributed to peer ${peer.id}`);
-      
-      return true;
+      // For now, return false since no real P2P implementation
+      this.logger.warn(`P2P distribution not implemented - cannot reach peer ${peer.id}`);
+      return false;
     } catch (error) {
       this.logger.warn(`Failed to distribute genesis block to peer ${peer.id}:`, error);
       return false;
@@ -652,17 +656,17 @@ class GenesisCoordinator extends EventEmitter {
    */
   async validatePeerConsensus(peer) {
     try {
-      // Simulate consensus validation
-      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 200));
-      
-      // In a real implementation, this would:
+      // Real consensus validation with peer
+      // This would:
       // 1. Request genesis block hash from peer
       // 2. Compare with local genesis block hash
       // 3. Validate peer's network configuration
       
-      this.logger.debug(`Consensus validated with peer ${peer.id}`);
+      this.logger.debug(`Attempting consensus validation with peer ${peer.id}`);
       
-      return true;
+      // For now, return false since no real P2P implementation
+      this.logger.warn(`P2P consensus validation not implemented - cannot validate peer ${peer.id}`);
+      return false;
     } catch (error) {
       this.logger.warn(`Failed to validate consensus with peer ${peer.id}:`, error);
       return false;

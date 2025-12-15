@@ -32,7 +32,7 @@ const BootstrapStatus = ({ bootstrapService, onBootstrapComplete }) => {
   useEffect(() => {
     if (!bootstrapService) return;
 
-    // Set up event listeners for bootstrap service
+    // Set up comprehensive event listeners for bootstrap service
     const handleStateChanged = (state) => {
       setBootstrapState(state);
       
@@ -63,17 +63,99 @@ const BootstrapStatus = ({ bootstrapService, onBootstrapComplete }) => {
       addStatusMessage('success', message);
     };
 
-    // Set up listeners
+    // Additional bootstrap integration listeners
+    const handlePeerDiscoveryStarted = () => {
+      addStatusMessage('info', 'Iniciando descubrimiento de peers P2P...');
+      setPeerDiscoveryStatus(prev => ({
+        ...prev,
+        phase: 'discovering',
+        message: 'Buscando peers en la red...'
+      }));
+    };
+
+    const handlePeersDiscovered = (peers) => {
+      addStatusMessage('success', `${peers.length} peers descubiertos`);
+      setPeerDiscoveryStatus(prev => ({
+        ...prev,
+        peers: peers,
+        message: `${peers.length} peers encontrados`
+      }));
+    };
+
+    const handleGenesisCoordinationStarted = () => {
+      addStatusMessage('info', 'Iniciando coordinación del bloque génesis...');
+      setGenesisProgress(prev => ({
+        ...prev,
+        phase: 'negotiating',
+        percentage: 10,
+        message: 'Negociando parámetros del génesis...'
+      }));
+    };
+
+    const handleGenesisCreated = (genesisResult) => {
+      addStatusMessage('success', '¡Bloque génesis creado exitosamente!');
+      setGenesisProgress(prev => ({
+        ...prev,
+        phase: 'completed',
+        percentage: 100,
+        message: 'Génesis completado'
+      }));
+    };
+
+    const handleNetworkModeActivated = () => {
+      addStatusMessage('success', '¡Red blockchain establecida exitosamente!');
+      // Hide bootstrap UI after a short delay
+      setTimeout(() => {
+        setIsVisible(false);
+        if (onBootstrapComplete) {
+          onBootstrapComplete();
+        }
+      }, 2000);
+    };
+
+    const handleModeChanged = (newMode, previousMode) => {
+      addStatusMessage('info', `Transición: ${previousMode} → ${newMode}`);
+    };
+
+    // Set up all listeners
     bootstrapService.on('stateChanged', handleStateChanged);
     bootstrapService.on('peerDiscoveryStatus', handlePeerDiscoveryStatus);
     bootstrapService.on('genesisProgress', handleGenesisProgress);
     bootstrapService.on('error', handleError);
     bootstrapService.on('success', handleSuccess);
+    
+    // Additional integration listeners
+    bootstrapService.on('peerDiscoveryStarted', handlePeerDiscoveryStarted);
+    bootstrapService.on('peersDiscovered', handlePeersDiscovered);
+    bootstrapService.on('genesisCoordinationStarted', handleGenesisCoordinationStarted);
+    bootstrapService.on('genesisCreated', handleGenesisCreated);
+    bootstrapService.on('networkModeActivated', handleNetworkModeActivated);
+    bootstrapService.on('modeChanged', handleModeChanged);
 
-    // Get initial state
+    // Get initial state and setup
     const initialState = bootstrapService.getState();
     setBootstrapState(initialState);
     setIsVisible(initialState.mode !== 'network');
+
+    // Initialize peer discovery status if in discovery mode
+    if (initialState.mode === 'discovery') {
+      setPeerDiscoveryStatus({
+        phase: 'discovering',
+        peers: initialState.discoveredPeers || [],
+        elapsed: 0,
+        message: 'Buscando peers en la red...'
+      });
+    }
+
+    // Initialize genesis progress if in genesis mode
+    if (initialState.mode === 'genesis') {
+      setGenesisProgress({
+        phase: 'negotiating',
+        percentage: 20,
+        message: 'Coordinando creación del génesis...',
+        participants: initialState.discoveredPeers?.map(p => p.walletAddress) || []
+      });
+    }
 
     // Cleanup listeners
     return () => {
@@ -82,6 +164,12 @@ const BootstrapStatus = ({ bootstrapService, onBootstrapComplete }) => {
       bootstrapService.removeListener('genesisProgress', handleGenesisProgress);
       bootstrapService.removeListener('error', handleError);
       bootstrapService.removeListener('success', handleSuccess);
+      bootstrapService.removeListener('peerDiscoveryStarted', handlePeerDiscoveryStarted);
+      bootstrapService.removeListener('peersDiscovered', handlePeersDiscovered);
+      bootstrapService.removeListener('genesisCoordinationStarted', handleGenesisCoordinationStarted);
+      bootstrapService.removeListener('genesisCreated', handleGenesisCreated);
+      bootstrapService.removeListener('networkModeActivated', handleNetworkModeActivated);
+      bootstrapService.removeListener('modeChanged', handleModeChanged);
     };
   }, [bootstrapService, onBootstrapComplete]);
 

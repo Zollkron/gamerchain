@@ -434,8 +434,10 @@ if __name__ == '__main__':
     print("=" * 60)
     print("API WALLET PLAYERGOLD - FUNCIONANDO")
     print("=" * 60)
-    print("✅ Todos los endpoints operativos")
-    print("💡 Puerto 18080 - Las wallets pueden conectarse")
+    print("[OK] Todos los endpoints operativos")
+    print("[INFO] Puerto 18081 - Las wallets pueden conectarse")
+    print("[INFO] P2P Network en puerto 18080")
+    print("[INFO] REST API en puerto 19080")
     print("=" * 60)
     
-    app.run(host='0.0.0.0', port=18080, debug=False)
+    app.run(host='0.0.0.0', port=18081, debug=False)

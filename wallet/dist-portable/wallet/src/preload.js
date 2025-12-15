@@ -94,8 +94,53 @@ contextBridge.exposeInMainWorld('electronAPI', {
   forceNetworkRevalidation: () => ipcRenderer.invoke('force-network-revalidation'),
   canWalletOperate: () => ipcRenderer.invoke('can-wallet-operate'),
   
+  // Blockchain Node Service operations
+  getBlockchainNodeStatus: () => ipcRenderer.invoke('get-blockchain-node-status'),
+  checkBlockchainNodeRequirements: () => ipcRenderer.invoke('check-blockchain-node-requirements'),
+  startBlockchainNode: () => ipcRenderer.invoke('start-blockchain-node'),
+  stopBlockchainNode: () => ipcRenderer.invoke('stop-blockchain-node'),
+  getBlockchainNetworkStatus: () => ipcRenderer.invoke('get-blockchain-network-status'),
+  
+  // Blockchain node event listeners
+  onBlockchainNodeStatusChange: (callback) => {
+    const wrappedCallback = (event, status) => callback(status);
+    ipcRenderer.on('blockchain-node-status-change', wrappedCallback);
+    return () => ipcRenderer.removeListener('blockchain-node-status-change', wrappedCallback);
+  },
+  
+  // Portable mode operations
+  getPortableModeInfo: () => ipcRenderer.invoke('get-portable-mode-info'),
+  checkSystemRequirementsPortable: () => ipcRenderer.invoke('check-system-requirements-portable'),
+  initializePortableEnvironment: () => ipcRenderer.invoke('initialize-portable-environment'),
+  getBootstrapState: () => ipcRenderer.invoke('get-bootstrap-state'),
+  updateBootstrapState: (newState) => ipcRenderer.invoke('update-bootstrap-state', newState),
+  
+  // Pioneer mode event listeners
+  onPioneerModeInitialized: (callback) => {
+    const wrappedCallback = (event, state) => callback(state);
+    ipcRenderer.on('pioneer-mode-initialized', wrappedCallback);
+    return () => ipcRenderer.removeListener('pioneer-mode-initialized', wrappedCallback);
+  },
+  
+  onBootstrapStateLoaded: (callback) => {
+    const wrappedCallback = (event, state) => callback(state);
+    ipcRenderer.on('bootstrap-state-loaded', wrappedCallback);
+    return () => ipcRenderer.removeListener('bootstrap-state-loaded', wrappedCallback);
+  },
+  
   // Generic invoke method for flexibility
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  
+  // Generic event listener methods
+  on: (channel, callback) => {
+    const wrappedCallback = (event, ...args) => callback(...args);
+    ipcRenderer.on(channel, wrappedCallback);
+    return () => ipcRenderer.removeListener(channel, wrappedCallback);
+  },
+  
+  removeListener: (channel, callback) => {
+    ipcRenderer.removeListener(channel, callback);
+  },
   
   // Event emitter for custom events
   emit: (eventName, data) => {

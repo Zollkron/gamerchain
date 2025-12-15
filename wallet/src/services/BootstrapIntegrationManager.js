@@ -224,7 +224,7 @@ class BootstrapIntegrationManager {
 
       // Ensure mining configuration is preserved
       if (state.selectedModel && state.modelInfo) {
-        this.logger.debug(`Preserving mining configuration: ${state.selectedModel}`);
+        this.logger.info(`Preserving mining configuration: ${state.selectedModel}`);
       }
 
       // Ensure network data is preserved

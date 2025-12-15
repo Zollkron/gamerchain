@@ -68,29 +68,58 @@ class NodeRegistry:
             conn.close()
     
     def add_node(self, node: NetworkNode, public_key: str = None) -> bool:
-        """Add a new node to the registry"""
+        """Add a new node to the registry with IP deduplication"""
         try:
+            # Check if a node with the same IP already exists and is active
+            existing_node = self.get_node_by_ip(node.public_ip)
+            if existing_node and existing_node.status == NodeStatus.ACTIVE:
+                # Update existing node instead of creating duplicate
+                logger.info(f"Updating existing node {existing_node.node_id} from IP {node.public_ip}")
+                return self.update_existing_node(existing_node.node_id, node, public_key)
+            
             # Encrypt IP address
             encrypted_ip, ip_salt = encrypt_ip_address(node.public_ip, self.encryption)
             
             with self._get_connection() as conn:
-                conn.execute("""
-                    INSERT OR REPLACE INTO nodes (
-                        node_id, encrypted_ip, ip_salt, port, latitude, longitude,
-                        os_info, is_genesis, last_keepalive, blockchain_height,
-                        connected_peers, node_type, reputation_score, created_at,
-                        status, public_key, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    node.node_id, encrypted_ip, ip_salt, node.port,
-                    node.latitude, node.longitude, node.os_info, node.is_genesis,
-                    node.last_keepalive, node.blockchain_height, node.connected_peers,
-                    node.node_type.value, node.reputation_score, node.created_at,
-                    node.status.value, public_key, json.dumps({})
-                ))
+                # Check if this specific node_id already exists
+                cursor = conn.execute("SELECT node_id FROM nodes WHERE node_id = ?", (node.node_id,))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    # Update existing node
+                    conn.execute("""
+                        UPDATE nodes SET 
+                        encrypted_ip = ?, ip_salt = ?, port = ?, latitude = ?, longitude = ?,
+                        os_info = ?, is_genesis = ?, last_keepalive = ?, blockchain_height = ?,
+                        connected_peers = ?, node_type = ?, status = ?, public_key = ?
+                        WHERE node_id = ?
+                    """, (
+                        encrypted_ip, ip_salt, node.port, node.latitude, node.longitude,
+                        node.os_info, node.is_genesis, node.last_keepalive, node.blockchain_height,
+                        node.connected_peers, node.node_type.value, node.status.value, public_key,
+                        node.node_id
+                    ))
+                    logger.info(f"Updated existing node {node.node_id}")
+                else:
+                    # Insert new node
+                    conn.execute("""
+                        INSERT INTO nodes (
+                            node_id, encrypted_ip, ip_salt, port, latitude, longitude,
+                            os_info, is_genesis, last_keepalive, blockchain_height,
+                            connected_peers, node_type, reputation_score, created_at,
+                            status, public_key, metadata
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        node.node_id, encrypted_ip, ip_salt, node.port,
+                        node.latitude, node.longitude, node.os_info, node.is_genesis,
+                        node.last_keepalive, node.blockchain_height, node.connected_peers,
+                        node.node_type.value, node.reputation_score, node.created_at,
+                        node.status.value, public_key, json.dumps({})
+                    ))
+                    logger.info(f"Added new node {node.node_id}")
+                
                 conn.commit()
                 
-            logger.info(f"Added node {node.node_id} to registry")
             return True
             
         except Exception as e:
@@ -144,6 +173,54 @@ class NodeRegistry:
         except Exception as e:
             logger.error(f"Failed to get node {node_id}: {e}")
             return None
+    
+    def get_node_by_ip(self, ip_address: str) -> Optional[NetworkNode]:
+        """Get a node by IP address (for deduplication)"""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.execute("SELECT * FROM nodes WHERE status = 'active'")
+                
+                # We need to decrypt each IP to compare (not ideal for performance, but necessary)
+                for row in cursor.fetchall():
+                    try:
+                        decrypted_ip = decrypt_ip_address(row['encrypted_ip'], row['ip_salt'], self.encryption)
+                        if decrypted_ip == ip_address:
+                            return self._row_to_node(row)
+                    except Exception as decrypt_error:
+                        logger.warning(f"Failed to decrypt IP for node {row['node_id']}: {decrypt_error}")
+                        continue
+                
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to get node by IP {ip_address}: {e}")
+            return None
+    
+    def update_existing_node(self, node_id: str, new_node_data: NetworkNode, public_key: str = None) -> bool:
+        """Update an existing node with new data"""
+        try:
+            # Encrypt IP address
+            encrypted_ip, ip_salt = encrypt_ip_address(new_node_data.public_ip, self.encryption)
+            
+            with self._get_connection() as conn:
+                conn.execute("""
+                    UPDATE nodes SET 
+                    encrypted_ip = ?, ip_salt = ?, port = ?, latitude = ?, longitude = ?,
+                    os_info = ?, last_keepalive = ?, status = ?, public_key = ?
+                    WHERE node_id = ?
+                """, (
+                    encrypted_ip, ip_salt, new_node_data.port, new_node_data.latitude, 
+                    new_node_data.longitude, new_node_data.os_info, new_node_data.last_keepalive,
+                    new_node_data.status.value, public_key, node_id
+                ))
+                conn.commit()
+                
+                logger.info(f"Updated existing node {node_id} with new data")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to update existing node {node_id}: {e}")
+            return False
     
     def get_active_nodes(self, max_age_minutes: int = 5) -> List[NetworkNode]:
         """Get all active nodes with recent keepalive"""
@@ -339,4 +416,48 @@ class NodeRegistry:
                 
         except Exception as e:
             logger.error(f"Failed to cleanup old nodes: {e}")
+            return 0
+    
+    def cleanup_duplicate_ips(self) -> int:
+        """Remove duplicate nodes from the same IP, keeping the most recent"""
+        try:
+            removed_count = 0
+            ip_groups = {}
+            
+            with self._get_connection() as conn:
+                cursor = conn.execute("SELECT * FROM nodes ORDER BY last_keepalive DESC")
+                
+                # Group nodes by IP address
+                for row in cursor.fetchall():
+                    try:
+                        decrypted_ip = decrypt_ip_address(row['encrypted_ip'], row['ip_salt'], self.encryption)
+                        
+                        if decrypted_ip not in ip_groups:
+                            ip_groups[decrypted_ip] = []
+                        ip_groups[decrypted_ip].append(row)
+                        
+                    except Exception as decrypt_error:
+                        logger.warning(f"Failed to decrypt IP for node {row['node_id']}: {decrypt_error}")
+                        continue
+                
+                # Remove duplicates (keep the most recent one per IP)
+                for ip, nodes in ip_groups.items():
+                    if len(nodes) > 1:
+                        # Keep the first one (most recent due to ORDER BY), remove the rest
+                        nodes_to_remove = nodes[1:]
+                        
+                        for node_row in nodes_to_remove:
+                            conn.execute("DELETE FROM nodes WHERE node_id = ?", (node_row['node_id'],))
+                            removed_count += 1
+                            logger.info(f"Removed duplicate node {node_row['node_id']} from IP {ip}")
+                
+                conn.commit()
+                
+                if removed_count > 0:
+                    logger.info(f"Cleaned up {removed_count} duplicate IP nodes")
+                
+                return removed_count
+                
+        except Exception as e:
+            logger.error(f"Failed to cleanup duplicate IPs: {e}")
             return 0

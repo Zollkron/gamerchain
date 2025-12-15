@@ -56,11 +56,23 @@ const BlockchainNodeStatus = () => {
       }
     };
 
-    window.electronAPI.on('blockchain-node-status-change', handleStatusChange);
+    // Set up blockchain node status listener
+    let unsubscribe = null;
+    
+    if (window.electronAPI && window.electronAPI.onBlockchainNodeStatusChange) {
+      unsubscribe = window.electronAPI.onBlockchainNodeStatusChange(handleStatusChange);
+    } else {
+      console.log('ElectronAPI blockchain node events not available, using polling instead');
+      // Fallback to polling
+      const interval = setInterval(loadNodeStatus, 5000);
+      unsubscribe = () => clearInterval(interval);
+    }
 
     // Cleanup
     return () => {
-      window.electronAPI.removeListener('blockchain-node-status-change', handleStatusChange);
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, []);
 

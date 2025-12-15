@@ -520,7 +520,7 @@ ipcMain.handle('get-network-info', async () => {
     return {
       network: 'testnet',
       networkId: 'playergold-testnet-genesis',
-      apiUrl: 'http://localhost:18080'
+      apiUrl: 'http://localhost:19080'
     };
   }
 });

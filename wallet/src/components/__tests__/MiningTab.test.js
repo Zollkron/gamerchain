@@ -35,14 +35,12 @@ jest.mock('../../services/AIModelService', () => ({
 }));
 
 jest.mock('../../services/MiningService', () => ({
-  miningService: {
-    addStatusListener: jest.fn(),
-    removeStatusListener: jest.fn(),
-    getMiningStatus: jest.fn(() => ({ status: 'stopped' })),
-    startMining: jest.fn(() => Promise.resolve()),
-    stopMining: jest.fn(() => Promise.resolve()),
-    generateMiningMetrics: jest.fn(() => ({}))
-  }
+  addStatusListener: jest.fn(),
+  removeStatusListener: jest.fn(),
+  getMiningStatus: jest.fn(() => ({ status: 'stopped' })),
+  startMining: jest.fn(() => Promise.resolve()),
+  stopMining: jest.fn(() => Promise.resolve()),
+  generateMiningMetrics: jest.fn(() => ({}))
 }));
 
 const mockWallet = {
@@ -139,5 +137,3 @@ describe('MiningTab', () => {
     });
   });
 });
-</content>
-</file>

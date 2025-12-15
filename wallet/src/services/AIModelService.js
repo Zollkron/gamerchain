@@ -268,14 +268,14 @@ class AIModelService {
     if (!model) return { compatible: false, reason: 'Model not found' };
 
     // This would integrate with actual system detection
-    // For now, return mock data
+    // Return conservative defaults since real hardware detection not implemented
     return {
-      compatible: true,
+      compatible: false, // Conservative default
       requirements: model.requirements,
       system: {
-        vram: '8 GB RTX 4070',
-        ram: '16 GB',
-        cpu: '8 cores'
+        vram: 'Hardware detection not implemented',
+        ram: 'Hardware detection not implemented',
+        cpu: 'Hardware detection not implemented'
       },
       recommendations: [
         'Tu RTX 4070 es perfecta para este modelo',

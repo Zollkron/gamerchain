@@ -108,6 +108,14 @@ class NetworkManager:
         """Get the current active network type"""
         return self.current_network
     
+    def is_testnet(self) -> bool:
+        """Check if current network is testnet"""
+        return self.current_network == NetworkType.TESTNET
+    
+    def is_mainnet(self) -> bool:
+        """Check if current network is mainnet"""
+        return self.current_network == NetworkType.MAINNET
+    
     def get_network_config(self, network_type: Optional[NetworkType] = None) -> NetworkConfig:
         """Get configuration for a specific network (or current network)"""
         network = network_type or self.current_network

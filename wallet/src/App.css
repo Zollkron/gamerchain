@@ -2381,3 +2381,294 @@ body {
     font-size: 0.85rem;
   }
 }
+/* Genesis State Indicators */
+.genesis-warning {
+  font-size: 12px;
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 8px 0;
+  text-align: center;
+}
+
+.no-genesis-message {
+  text-align: center;
+  color: #6c757d;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.no-genesis-message p:first-child {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.no-genesis-message p:last-child {
+  font-size: 14px;
+  color: #868e96;
+}
+
+/* Balance Card Styles */
+.balance-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.balance-card h3 {
+  color: #495057;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.balance-amount {
+  font-size: 32px;
+  font-weight: 700;
+  color: #28a745;
+  margin-bottom: 16px;
+}
+
+.faucet-button {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.faucet-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0056b3, #004085);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.faucet-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* Transaction History Styles */
+.recent-transactions {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.recent-transactions h3 {
+  color: #495057;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Send Button Styles */
+.send-button {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.send-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e7e34, #155724);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.send-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+/* Error Handling Styles */
+.error-card {
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.error-icon {
+  font-size: 20px;
+  color: #e53e3e;
+}
+
+.error-header h4 {
+  color: #e53e3e;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.error-explanation {
+  color: #744210;
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 8px 0 12px 0;
+  background: #fefcbf;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border-left: 3px solid #d69e2e;
+}
+
+.retry-button {
+  background: #3182ce;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: background-color 0.2s;
+}
+
+.retry-button:hover:not(:disabled) {
+  background: #2c5282;
+}
+
+.retry-button:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.dismiss-error-button {
+  background: transparent;
+  color: #718096;
+  border: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dismiss-error-button:hover {
+  background: #f7fafc;
+  color: #4a5568;
+}
+
+/* Loading States */
+.loading-message {
+  color: #4a5568;
+  font-size: 14px;
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Enhanced Genesis Warning */
+.genesis-warning {
+  background: #fef5e7;
+  border: 1px solid #f6ad55;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  color: #744210;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Status Message Improvements */
+.status-message {
+  font-size: 12px;
+  color: #666;
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #e2e8f0;
+}
+
+.status-message.error {
+  background: #fff5f5;
+  border-left-color: #e53e3e;
+  color: #e53e3e;
+}
+
+.status-message.warning {
+  background: #fefcbf;
+  border-left-color: #d69e2e;
+  color: #744210;
+}
+
+.status-message.success {
+  background: #f0fff4;
+  border-left-color: #38a169;
+  color: #276749;
+}
+
+/* Button States */
+.button-disabled-explanation {
+  font-size: 11px;
+  color: #a0aec0;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Network State Indicators */
+.network-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.network-indicator.connected {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.network-indicator.connecting {
+  background: #fefcbf;
+  color: #744210;
+}
+
+.network-indicator.disconnected {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.network-indicator.bootstrap {
+  background: #e6fffa;
+  color: #234e52;
+}

@@ -5,9 +5,9 @@ class NetworkService {
   constructor() {
     // Testnet configuration
     this.testnetConfig = {
-      apiUrl: 'http://127.0.0.1:18080',  // Local testnet API (IPv4 explicit)
+      apiUrl: 'http://127.0.0.1:19080',  // Local testnet API (IPv4 explicit)
       networkId: 'playergold-testnet-genesis',
-      explorerUrl: 'http://127.0.0.1:18080/explorer'
+      explorerUrl: 'http://127.0.0.1:19080/explorer'
     };
     
     // Mainnet configuration (for future use)

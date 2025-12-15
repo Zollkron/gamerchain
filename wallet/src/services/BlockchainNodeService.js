@@ -111,12 +111,19 @@ class BlockchainNodeService {
       if (!fs.existsSync(scriptPath)) {
         return {
           canRun: false,
-          issues: ['Backend blockchain script not found'],
-          recommendations: [
-            'Ensure the wallet is properly installed',
-            'Check that all files were extracted correctly'
+          issues: [
+            'Backend blockchain script not found',
+            `Expected location: ${scriptPath}`,
+            'This is required for mining operations'
           ],
-          scriptPath
+          recommendations: [
+            'Ensure you are running from the correct directory',
+            'Try running from the project root directory',
+            'Check that scripts/start_multinode_network.py exists',
+            'Use wallet mode: cd wallet && npm start'
+          ],
+          scriptPath,
+          searchedPaths: this.getSearchedPaths()
         };
       }
 
@@ -193,23 +200,61 @@ class BlockchainNodeService {
    * Get path to the blockchain node script
    */
   getNodeScriptPath() {
-    // In production, the script should be bundled with the app
-    const productionPath = path.join(process.resourcesPath, 'scripts', 'start_multinode_network.py');
-    const developmentPath = path.join(process.cwd(), '..', 'scripts', 'start_multinode_network.py');
+    // Try different possible locations for the script
+    const possiblePaths = [];
     
-    // Check production path first
-    if (fs.existsSync(productionPath)) {
-      return productionPath;
+    // Production path (bundled with app) - only if resourcesPath is available
+    if (process.resourcesPath) {
+      possiblePaths.push(path.join(process.resourcesPath, 'scripts', 'start_multinode_network.py'));
     }
     
-    // Fall back to development path
-    if (fs.existsSync(developmentPath)) {
-      return developmentPath;
+    // Development paths
+    possiblePaths.push(
+      // Development path (from wallet directory to parent scripts)
+      path.join(process.cwd(), '..', 'scripts', 'start_multinode_network.py'),
+      // Relative to wallet directory
+      path.join(process.cwd(), 'scripts', 'start_multinode_network.py'),
+      // Absolute path from project root
+      path.resolve(process.cwd(), '..', 'scripts', 'start_multinode_network.py'),
+      // Try from project root if we're in wallet subdirectory
+      path.resolve(__dirname, '..', '..', '..', 'scripts', 'start_multinode_network.py')
+    );
+    
+    console.log('🔍 Searching for blockchain script in:');
+    for (const scriptPath of possiblePaths) {
+      console.log(`   Checking: ${scriptPath}`);
+      if (fs.existsSync(scriptPath)) {
+        console.log(`✅ Found script at: ${scriptPath}`);
+        return scriptPath;
+      }
     }
     
-    // Try relative to wallet directory
-    const relativePath = path.join(process.cwd(), 'scripts', 'start_multinode_network.py');
-    return relativePath;
+    // If not found, return the most likely development path and let it fail with a clear error
+    const fallbackPath = path.join(process.cwd(), '..', 'scripts', 'start_multinode_network.py');
+    console.error(`❌ Script not found in any location. Using fallback: ${fallbackPath}`);
+    return fallbackPath;
+  }
+
+  /**
+   * Get list of paths searched for debugging
+   */
+  getSearchedPaths() {
+    const paths = [];
+    
+    // Production path (only if resourcesPath is available)
+    if (process.resourcesPath) {
+      paths.push(path.join(process.resourcesPath, 'scripts', 'start_multinode_network.py'));
+    }
+    
+    // Development paths
+    paths.push(
+      path.join(process.cwd(), '..', 'scripts', 'start_multinode_network.py'),
+      path.join(process.cwd(), 'scripts', 'start_multinode_network.py'),
+      path.resolve(process.cwd(), '..', 'scripts', 'start_multinode_network.py'),
+      path.resolve(__dirname, '..', '..', '..', 'scripts', 'start_multinode_network.py')
+    );
+    
+    return paths;
   }
 
   /**

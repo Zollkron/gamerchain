@@ -19,14 +19,62 @@ class NetworkCoordinatorClient {
         this.networkMap = null;
         this.lastMapUpdate = null;
         
-        // Generate node keypair
-        this.generateNodeKeys();
+        // Load or generate node keypair
+        this.loadOrGenerateNodeKeys();
     }
     
     /**
-     * Generate simple keypair for node authentication
+     * Load existing node keys or generate new ones
      */
-    generateNodeKeys() {
+    loadOrGenerateNodeKeys() {
+        const fs = require('fs');
+        const path = require('path');
+        
+        try {
+            // Create data directory if it doesn't exist
+            const dataDir = path.join(process.cwd(), 'data');
+            if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+            }
+            
+            const keysFile = path.join(dataDir, 'node_keys.json');
+            
+            // Try to load existing keys
+            if (fs.existsSync(keysFile)) {
+                const keysData = JSON.parse(fs.readFileSync(keysFile, 'utf8'));
+                this.nodeId = keysData.nodeId;
+                this.publicKey = keysData.publicKey;
+                this.privateKey = keysData.privateKey;
+                
+                console.log(`📂 Loaded existing node ID: ${this.nodeId}`);
+                return;
+            }
+            
+            // Generate new keys if none exist
+            this.generateNewNodeKeys();
+            
+            // Save keys for future use
+            const keysData = {
+                nodeId: this.nodeId,
+                publicKey: this.publicKey,
+                privateKey: this.privateKey,
+                createdAt: new Date().toISOString()
+            };
+            
+            fs.writeFileSync(keysFile, JSON.stringify(keysData, null, 2));
+            console.log(`💾 Saved new node keys to: ${keysFile}`);
+            
+        } catch (error) {
+            console.error('Failed to load/generate node keys:', error);
+            // Fallback to in-memory keys
+            this.generateNewNodeKeys();
+        }
+    }
+    
+    /**
+     * Generate new keypair for node authentication
+     */
+    generateNewNodeKeys() {
         try {
             // Use RSA as fallback since Ed25519 might not be supported
             const keyPair = crypto.generateKeyPairSync('rsa', {
@@ -44,7 +92,7 @@ class NetworkCoordinatorClient {
                 .digest('hex');
             this.nodeId = `PG${publicKeyHash.substring(0, 40)}`;
             
-            console.log(`Generated node ID: ${this.nodeId}`);
+            console.log(`🔑 Generated new node ID: ${this.nodeId}`);
             
         } catch (error) {
             console.error('Failed to generate node keys:', error);

@@ -69,12 +69,24 @@ class MockBootstrapService {
   }
 }
 
+// Mock GenesisStateManager
+const mockGenesisStateManager = {
+  checkGenesisExists: jest.fn().mockResolvedValue({ exists: false }),
+  getCurrentNetworkState: jest.fn().mockResolvedValue('no_genesis'),
+  isOperationAllowed: jest.fn().mockResolvedValue(false),
+  synchronizeWithBootstrap: jest.fn().mockResolvedValue(),
+  on: jest.fn(),
+  removeListener: jest.fn()
+};
+
 // Mock window.alert
 global.alert = jest.fn();
 
 // Mock window.electronAPI
 const mockElectronAPI = {
   getBootstrapService: jest.fn(),
+  getGenesisStateManager: jest.fn().mockResolvedValue(mockGenesisStateManager),
+  getNetworkValidationStatus: jest.fn().mockResolvedValue({ success: true, status: 'connected' }),
   getWalletBalance: jest.fn(),
   getTransactionHistory: jest.fn(),
   getNetworkStatus: jest.fn(),
@@ -114,6 +126,12 @@ describe('Dashboard Bootstrap Integration', () => {
 
     // Setup default mock responses
     mockElectronAPI.getBootstrapService.mockResolvedValue(mockBootstrapService);
+    mockElectronAPI.getGenesisStateManager.mockResolvedValue(mockGenesisStateManager);
+    
+    // Reset GenesisStateManager mock to default state
+    mockGenesisStateManager.checkGenesisExists.mockResolvedValue({ exists: false });
+    mockGenesisStateManager.getCurrentNetworkState.mockResolvedValue('no_genesis');
+    mockGenesisStateManager.isOperationAllowed.mockResolvedValue(false);
     mockElectronAPI.getWalletBalance.mockResolvedValue({ success: true, balance: '100.50' });
     mockElectronAPI.getTransactionHistory.mockResolvedValue({ success: true, transactions: [] });
     mockElectronAPI.getNetworkStatus.mockResolvedValue({ success: true, status: { syncStatus: 'synced' } });
@@ -175,6 +193,7 @@ describe('Dashboard Bootstrap Integration', () => {
 
     test('shows network status when in network mode', async () => {
       mockBootstrapService.setState({ mode: 'network' });
+      mockGenesisStateManager.checkGenesisExists.mockResolvedValue({ exists: true });
 
       render(
         <Dashboard 
@@ -184,6 +203,11 @@ describe('Dashboard Bootstrap Integration', () => {
           onWalletsUpdate={jest.fn()}
         />
       );
+
+      // Wait for the component to initialize and load genesis state
+      await waitFor(() => {
+        expect(screen.getByText(/Activo/)).toBeInTheDocument(); // Genesis should be active
+      }, { timeout: 3000 });
 
       await waitFor(() => {
         expect(screen.queryByText(/Bootstrap:/)).not.toBeInTheDocument();
@@ -270,8 +294,9 @@ describe('Dashboard Bootstrap Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('🔍')).toBeInTheDocument(); // Discovery mode icon
         expect(screen.getByText('Descubrimiento P2P')).toBeInTheDocument();
+        const modeIndicators = screen.getAllByText('🔍');
+        expect(modeIndicators.length).toBeGreaterThan(0);
         expect(screen.getByText((content, element) => {
           return element && element.textContent === 'Peers encontrados: 2';
         })).toBeInTheDocument();

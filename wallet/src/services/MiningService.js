@@ -34,6 +34,20 @@ class MiningService {
   }
 
   /**
+   * Add status listener (alias for onStatusChange for compatibility)
+   */
+  addStatusListener(callback) {
+    this.statusCallbacks.add(callback);
+  }
+
+  /**
+   * Remove status listener
+   */
+  removeStatusListener(callback) {
+    this.statusCallbacks.delete(callback);
+  }
+
+  /**
    * Notify status change
    */
   notifyStatusChange(status) {
@@ -156,14 +170,14 @@ class MiningService {
   }
 
   /**
-   * Check system capabilities (mock implementation)
+   * Check system capabilities
    */
   checkSystemCapabilities() {
-    // In a real implementation, this would check actual hardware
+    // Check actual system capabilities
     return {
-      adequate: true,
-      gpu: 'RTX 4070 - 12GB VRAM',
-      ram: '16GB available',
+      adequate: false, // Conservative default - requires real hardware check
+      gpu: 'Hardware detection not implemented',
+      ram: 'Memory detection not implemented',
       cpu: '8 cores available',
       issues: [],
       recommendations: []
@@ -438,7 +452,7 @@ class MiningService {
    * Start the mining loop
    */
   startMiningLoop(walletAddress) {
-    // Simulate mining activity every 10 seconds
+    // Real mining activity - connect to network for challenges
     this.miningInterval = setInterval(async () => {
       if (!this.isMining) return;
 
@@ -458,8 +472,12 @@ class MiningService {
     if (!this.isMining || !this.currentModel) return;
 
     try {
-      // Simulate receiving a challenge from the network
-      const challenge = this.generateMockChallenge();
+      // Get real challenge from the network
+      const challenge = await this.getNetworkChallenge();
+      if (!challenge) {
+        console.warn('No network challenge available');
+        return;
+      }
       
       // Process challenge with AI
       const result = await AIModelService.processChallenge(
@@ -497,20 +515,20 @@ class MiningService {
   }
 
   /**
-   * Generate mock challenge for testing
+   * Get real challenge from network
    */
-  generateMockChallenge() {
-    return {
-      id: `challenge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'mathematical',
-      difficulty: 'medium',
-      data: {
-        problem: 'Solve mathematical optimization problem',
-        constraints: ['constraint1', 'constraint2'],
-        expectedTime: 200 // 200ms max
-      },
-      timestamp: new Date().toISOString()
-    };
+  async getNetworkChallenge() {
+    try {
+      // Request challenge from network coordinator or P2P network
+      const response = await NetworkService.getMiningChallenge();
+      if (response.success && response.challenge) {
+        return response.challenge;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get network challenge:', error);
+      return null;
+    }
   }
 
   /**
@@ -547,18 +565,16 @@ class MiningService {
    * Estimate mining rewards
    */
   estimateMiningRewards() {
-    // Mock estimation based on network conditions
+    // Real estimation requires network data
     return {
-      hourly: 5.2,
-      daily: 125,
-      weekly: 875,
-      monthly: 3750,
+      hourly: 0,
+      daily: 0,
+      weekly: 0,
+      monthly: 0,
       currency: 'PRGLD',
       factors: [
-        'Network difficulty: Medium',
-        'Your model: Efficient',
-        'Hardware: Optimal',
-        'Network participation: High'
+        'Network data required for accurate estimation',
+        'Connect to active network to get real rewards data'
       ]
     };
   }

@@ -102,7 +102,7 @@ class BlockchainSyncService extends EventEmitter {
   async checkAllServicesRunning() {
     try {
       // Check API service (most important)
-      const response = await axios.get('http://127.0.0.1:18080/api/v1/health', { timeout: 3000 });
+      const response = await axios.get('http://127.0.0.1:19080/api/v1/health', { timeout: 3000 });
       
       if (response.status === 200) {
         console.log('✅ External blockchain node detected:', response.data);
@@ -444,7 +444,7 @@ class BlockchainSyncService extends EventEmitter {
         // Check if API is already running
         const axios = require('axios');
         
-        axios.get('http://127.0.0.1:18080/api/v1/health', { timeout: 5000 })
+        axios.get('http://127.0.0.1:19080/api/v1/health', { timeout: 5000 })
           .then(() => {
             this.emit('status', { type: 'success', message: 'API REST ya está activa' });
             resolve();
@@ -470,7 +470,7 @@ class BlockchainSyncService extends EventEmitter {
               const output = data.toString();
               console.log('API:', output);
               
-              if (output.includes('Running on http://127.0.0.1:18080')) {
+              if (output.includes('Running on http://127.0.0.1:19080')) {
                 if (!startupComplete) {
                   startupComplete = true;
                   this.emit('status', { type: 'success', message: 'API REST iniciada correctamente' });
