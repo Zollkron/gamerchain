@@ -259,3 +259,10 @@ tmp/
 # Documentación con información sensible (se crearán versiones seguras)
 SOLUCION_CONEXION_NODOS.md
 SETUP_NODO2_PORTATIL.md
+# Archivos de claves sensibles - NUNCA subir 
+data/node_keys.json 
+data/*_keys.json 
+*.pem 
+*.key 
+*.p12 
+*.pfx 
