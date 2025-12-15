@@ -8,8 +8,16 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [transactions, setTransactions] = useState([]);
   const [networkStatus, setNetworkStatus] = useState({ connected: false, synced: false });
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [errorInfo, setErrorInfo] = useState(null);
   const [bootstrapService, setBootstrapService] = useState(null);
   const [bootstrapState, setBootstrapState] = useState({ mode: 'network' });
+  
+  // Genesis state management
+  const [genesisStateManager, setGenesisStateManager] = useState(null);
+  const [walletStateProvider, setWalletStateProvider] = useState(null);
+  const [genesisState, setGenesisState] = useState({ exists: false });
+  const [walletDisplayState, setWalletDisplayState] = useState(null);
   
   // Send transaction form state
   const [sendForm, setSendForm] = useState({
@@ -37,6 +45,110 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
   const [downloadProgress, setDownloadProgress] = useState({});
   const [miningRewards, setMiningRewards] = useState(null);
 
+  // Initialize genesis state management
+  useEffect(() => {
+    const initializeStateManagement = async () => {
+      try {
+        if (window.electronAPI && window.electronAPI.getGenesisStateManager) {
+          const gsm = await window.electronAPI.getGenesisStateManager();
+          setGenesisStateManager(gsm);
+          
+          // Check initial genesis state
+          const initialGenesisState = await gsm.checkGenesisExists();
+          setGenesisState(initialGenesisState);
+          
+          // Setup comprehensive genesis state listeners
+          gsm.on('genesisStateChanged', (newGenesisState) => {
+            setGenesisState(newGenesisState);
+            
+            // Refresh wallet data when genesis state changes
+            if (newGenesisState.exists && wallet) {
+              setTimeout(() => loadWalletData(), 500);
+            }
+          });
+          
+          gsm.on('networkStateChanged', (newState, previousState) => {
+            console.log(`Network state changed: ${previousState} -> ${newState}`);
+            
+            // Update network status based on state change
+            setNetworkStatus(prev => ({
+              ...prev,
+              connected: newState === 'active',
+              synced: newState === 'active'
+            }));
+            
+            // Refresh wallet data on significant state changes
+            if (newState === 'active' && wallet) {
+              setTimeout(() => loadWalletData(), 500);
+            }
+          });
+          
+          gsm.on('cachedDataCleared', () => {
+            console.log('Cached data cleared - refreshing wallet data');
+            if (wallet) {
+              loadWalletData();
+            }
+          });
+          
+          gsm.on('networkActivated', (data) => {
+            console.log('Network activated:', data);
+            if (wallet) {
+              setTimeout(() => loadWalletData(), 1000);
+            }
+          });
+        }
+        
+        if (window.electronAPI && window.electronAPI.getWalletStateProvider) {
+          const wsp = await window.electronAPI.getWalletStateProvider();
+          setWalletStateProvider(wsp);
+          
+          // Setup comprehensive wallet state provider listeners
+          wsp.on('walletStateUpdated', (walletId, displayState) => {
+            if (wallet && walletId === wallet.id) {
+              setWalletDisplayState(displayState);
+              
+              // Update UI state based on display state
+              setBalance(displayState.balance);
+              setTransactions(displayState.transactions);
+              setNetworkStatus({
+                connected: displayState.networkState === 'active',
+                synced: displayState.networkState === 'active'
+              });
+            }
+          });
+          
+          wsp.on('bootstrapStateChanged', (bootstrapState) => {
+            console.log('Bootstrap state changed in wallet state provider:', bootstrapState.mode);
+            setBootstrapState(bootstrapState);
+          });
+          
+          wsp.on('bootstrapCompleted', (data) => {
+            console.log('Bootstrap completed:', data);
+            if (wallet) {
+              setTimeout(() => loadWalletData(), 1000);
+            }
+          });
+          
+          wsp.on('bootstrapPhaseChanged', (phase) => {
+            console.log('Bootstrap phase changed:', phase);
+            // Could update UI to show bootstrap progress
+          });
+          
+          wsp.on('blockchainOperationsEnabled', (data) => {
+            console.log('Blockchain operations enabled:', data.availableFeatures);
+            if (wallet) {
+              setTimeout(() => loadWalletData(), 500);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing state management:', error);
+      }
+    };
+    
+    initializeStateManagement();
+  }, []);
+
   // Load wallet data on mount and wallet change
   useEffect(() => {
     if (wallet) {
@@ -57,15 +169,63 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
           const state = service.getState();
           setBootstrapState(state);
           
-          // Listen for state changes
+          // Setup comprehensive bootstrap listeners
           const handleStateChange = (newState) => {
             setBootstrapState(newState);
+            
+            // Update UI based on bootstrap state
+            if (newState.mode === 'network') {
+              // Bootstrap completed - refresh wallet data
+              loadWalletData();
+            }
           };
           
+          const handleGenesisCreated = (genesisResult) => {
+            console.log('Genesis block created:', genesisResult);
+            // Refresh wallet data after genesis creation
+            setTimeout(() => loadWalletData(), 1000);
+          };
+          
+          const handleNetworkModeActivated = () => {
+            console.log('Network mode activated');
+            // Clear any cached data and refresh
+            setTimeout(() => loadWalletData(), 1000);
+          };
+          
+          const handleBootstrapError = (error) => {
+            console.error('Bootstrap error:', error);
+            // Could show error notification to user
+          };
+          
+          // Set up all bootstrap listeners
           service.on('stateChanged', handleStateChange);
+          service.on('genesisCreated', handleGenesisCreated);
+          service.on('networkModeActivated', handleNetworkModeActivated);
+          service.on('error', handleBootstrapError);
+          
+          // Integrate with genesis state manager if available
+          if (genesisStateManager && service) {
+            try {
+              await genesisStateManager.synchronizeWithBootstrap();
+            } catch (error) {
+              console.warn('Could not synchronize with bootstrap:', error);
+            }
+          }
+          
+          // Integrate with wallet state provider if available
+          if (walletStateProvider && service) {
+            try {
+              await walletStateProvider.synchronizeWithBootstrap();
+            } catch (error) {
+              console.warn('Could not synchronize wallet state provider with bootstrap:', error);
+            }
+          }
           
           return () => {
             service.removeListener('stateChanged', handleStateChange);
+            service.removeListener('genesisCreated', handleGenesisCreated);
+            service.removeListener('networkModeActivated', handleNetworkModeActivated);
+            service.removeListener('error', handleBootstrapError);
           };
         }
       } catch (error) {
@@ -74,7 +234,7 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     };
     
     initBootstrapService();
-  }, []);
+  }, [genesisStateManager, walletStateProvider]);
 
   // Set up mining status listeners
   useEffect(() => {
@@ -106,31 +266,142 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     if (!wallet || !window.electronAPI) return;
     
     setIsLoading(true);
+    setErrorInfo(null);
+    
+    // Set loading message based on current network state
+    const currentNetworkState = genesisStateManager ? genesisStateManager.getCurrentNetworkState() : 'disconnected';
+    setLoadingMessage(getLoadingMessage('wallet_data', currentNetworkState));
+    
     try {
-      // Load balance
-      const balanceResult = await window.electronAPI.getWalletBalance(wallet.id);
-      if (balanceResult.success) {
-        setBalance(balanceResult.balance);
-      }
-      
-      // Load transaction history
-      const historyResult = await window.electronAPI.getTransactionHistory(wallet.id, 20, 0);
-      if (historyResult.success) {
-        setTransactions(historyResult.transactions);
-      }
-      
-      // Get network status
-      const statusResult = await window.electronAPI.getNetworkStatus();
-      if (statusResult.success) {
+      // Use WalletStateProvider if available for honest state display
+      if (walletStateProvider) {
+        const displayState = await walletStateProvider.getWalletDisplayState(wallet.id);
+        setWalletDisplayState(displayState);
+        setBalance(displayState.balance);
+        setTransactions(displayState.transactions);
         setNetworkStatus({
-          connected: true,
-          synced: statusResult.status.syncStatus === 'synced'
+          connected: displayState.networkState === 'active',
+          synced: displayState.networkState === 'active'
         });
+        
+        // Handle error information from display state
+        if (displayState.error) {
+          setErrorInfo({
+            message: displayState.error,
+            type: 'wallet_state_error',
+            canRetry: true
+          });
+        }
+      } else {
+        // Fallback to direct API calls
+        setLoadingMessage(getLoadingMessage('balance_query', currentNetworkState));
+        
+        // Load balance - but check genesis state first
+        const balanceResult = await window.electronAPI.getWalletBalance(wallet.id);
+        if (balanceResult.success && !balanceResult.requiresGenesis) {
+          setBalance(balanceResult.balance);
+        } else {
+          // Show zero balance when genesis doesn't exist
+          setBalance('0.00');
+          
+          // Handle balance errors
+          if (balanceResult.errorInfo) {
+            setErrorInfo({
+              message: balanceResult.errorInfo.message,
+              explanation: balanceResult.errorInfo.explanation,
+              type: balanceResult.errorType,
+              canRetry: balanceResult.errorInfo.canRetry
+            });
+          }
+        }
+        
+        setLoadingMessage(getLoadingMessage('transaction_history', currentNetworkState));
+        
+        // Load transaction history - but check genesis state first
+        const historyResult = await window.electronAPI.getTransactionHistory(wallet.id, 20, 0);
+        if (historyResult.success && !historyResult.requiresGenesis) {
+          setTransactions(historyResult.transactions);
+        } else {
+          // Show empty transactions when genesis doesn't exist
+          setTransactions([]);
+          
+          // Handle history errors (only if no balance error)
+          if (historyResult.errorInfo && !errorInfo) {
+            setErrorInfo({
+              message: historyResult.errorInfo.message,
+              explanation: historyResult.errorInfo.explanation,
+              type: historyResult.errorType,
+              canRetry: historyResult.errorInfo.canRetry
+            });
+          }
+        }
+        
+        setLoadingMessage(getLoadingMessage('network_status', currentNetworkState));
+        
+        // Get network status
+        const statusResult = await window.electronAPI.getNetworkStatus();
+        if (statusResult.success) {
+          setNetworkStatus({
+            connected: true,
+            synced: statusResult.status.syncStatus === 'synced'
+          });
+        } else {
+          setNetworkStatus({ connected: false, synced: false });
+          
+          // Handle network status errors (only if no other errors)
+          if (statusResult.errorInfo && !errorInfo) {
+            setErrorInfo({
+              message: statusResult.errorInfo.message,
+              explanation: statusResult.errorInfo.explanation,
+              type: statusResult.errorType,
+              canRetry: statusResult.errorInfo.canRetry
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading wallet data:', error);
+      
+      // On error, show honest empty state
+      setBalance('0.00');
+      setTransactions([]);
+      setNetworkStatus({ connected: false, synced: false });
+      
+      // Set generic error info
+      setErrorInfo({
+        message: 'Error inesperado al cargar datos de la cartera',
+        explanation: 'Ha ocurrido un error no esperado. Por favor, intenta nuevamente.',
+        type: 'unknown_error',
+        canRetry: true
+      });
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
+    }
+  };
+
+  /**
+   * Get loading message for current operation and network state
+   * @param {string} operation - Current operation
+   * @param {string} networkState - Current network state
+   * @returns {string} Loading message
+   */
+  const getLoadingMessage = (operation, networkState) => {
+    const messages = {
+      'wallet_data': 'Cargando datos de la cartera',
+      'balance_query': 'Consultando balance',
+      'transaction_history': 'Cargando historial de transacciones',
+      'network_status': 'Verificando estado de la red'
+    };
+    
+    const baseMessage = messages[operation] || 'Procesando';
+    
+    if (networkState === 'connecting') {
+      return `${baseMessage} (conectando a la red)...`;
+    } else if (networkState.startsWith('bootstrap_')) {
+      return `${baseMessage} (estableciendo red)...`;
+    } else {
+      return `${baseMessage}...`;
     }
   };
 
@@ -138,7 +409,24 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     e.preventDefault();
     if (!window.electronAPI || !wallet) return;
     
+    // Check if send transaction operation is allowed based on genesis state
+    const canSendTransactions = walletDisplayState?.canSendTransactions ?? 
+      (genesisStateManager ? genesisStateManager.isOperationAllowed('send_transaction') : false);
+    
+    if (!canSendTransactions) {
+      setErrorInfo({
+        message: 'Envío de transacciones no disponible',
+        explanation: 'Las transacciones requieren que la blockchain esté completamente activa. Actualmente la red está en proceso de inicialización.',
+        type: 'operation_not_allowed',
+        canRetry: false
+      });
+      return;
+    }
+    
     setIsLoading(true);
+    setErrorInfo(null);
+    setLoadingMessage('Enviando transacción...');
+    
     try {
       const result = await window.electronAPI.sendTransaction(wallet.id, {
         toAddress: sendForm.toAddress,
@@ -151,31 +439,80 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
         setSendForm({ toAddress: '', amount: '', memo: '' });
         loadWalletData(); // Refresh data
       } else {
-        alert(`Error al enviar transacción: ${result.error}`);
+        // Handle transaction error with detailed information
+        if (result.errorInfo) {
+          setErrorInfo({
+            message: result.errorInfo.message,
+            explanation: result.errorInfo.explanation,
+            type: result.errorType,
+            canRetry: result.errorInfo.canRetry
+          });
+        } else {
+          alert(`Error al enviar transacción: ${result.error}`);
+        }
       }
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      setErrorInfo({
+        message: 'Error inesperado al enviar transacción',
+        explanation: 'Ha ocurrido un error no esperado durante el envío. Por favor, verifica los datos e intenta nuevamente.',
+        type: 'unknown_error',
+        canRetry: true
+      });
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
     }
   };
 
   const handleRequestFaucet = async () => {
     if (!window.electronAPI || !wallet) return;
     
+    // Check if faucet operation is allowed based on genesis state
+    const canRequestFaucet = walletDisplayState?.canRequestFaucet ?? 
+      (genesisStateManager ? genesisStateManager.isOperationAllowed('faucet') : false);
+    
+    if (!canRequestFaucet) {
+      setErrorInfo({
+        message: 'Faucet no disponible',
+        explanation: 'El faucet de testnet requiere que la blockchain esté completamente activa. Actualmente la red está en proceso de inicialización.',
+        type: 'operation_not_allowed',
+        canRetry: false
+      });
+      return;
+    }
+    
     setIsLoading(true);
+    setErrorInfo(null);
+    setLoadingMessage('Solicitando tokens del faucet...');
+    
     try {
       const result = await window.electronAPI.requestFaucetTokens(wallet.id, 1000);
       if (result.success) {
         alert(`¡Tokens solicitados exitosamente!\nCantidad: ${result.amount} PRGLD\nID: ${result.transactionId}`);
         setTimeout(() => loadWalletData(), 3000); // Refresh after 3 seconds
       } else {
-        alert(`Error al solicitar tokens: ${result.error}`);
+        // Handle faucet error with detailed information
+        if (result.errorInfo) {
+          setErrorInfo({
+            message: result.errorInfo.message,
+            explanation: result.errorInfo.explanation,
+            type: result.errorType,
+            canRetry: result.errorInfo.canRetry
+          });
+        } else {
+          alert(`Error al solicitar tokens: ${result.error}`);
+        }
       }
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      setErrorInfo({
+        message: 'Error inesperado al solicitar tokens',
+        explanation: 'Ha ocurrido un error no esperado durante la solicitud del faucet. Por favor, intenta nuevamente.',
+        type: 'unknown_error',
+        canRetry: true
+      });
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -374,16 +711,61 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
               </div>
             )}
 
+            {/* Error Display */}
+            {errorInfo && (
+              <div className="error-card">
+                <div className="error-header">
+                  <span className="error-icon">⚠️</span>
+                  <h4>{errorInfo.message}</h4>
+                </div>
+                {errorInfo.explanation && (
+                  <p className="error-explanation">{errorInfo.explanation}</p>
+                )}
+                {errorInfo.canRetry && (
+                  <button 
+                    className="retry-button"
+                    onClick={() => {
+                      setErrorInfo(null);
+                      loadWalletData();
+                    }}
+                    disabled={isLoading}
+                  >
+                    🔄 Reintentar
+                  </button>
+                )}
+                <button 
+                  className="dismiss-error-button"
+                  onClick={() => setErrorInfo(null)}
+                >
+                  ✕ Cerrar
+                </button>
+              </div>
+            )}
+
             <div className="balance-card">
               <h3>Balance Total</h3>
               <div className="balance-amount">
-                {isLoading ? 'Cargando...' : `${balance} PRGLD`}
+                {isLoading ? (loadingMessage || 'Cargando...') : `${balance} PRGLD`}
               </div>
+              {/* Genesis state indicator */}
+              {!genesisState.exists && (
+                <div className="genesis-warning">
+                  ⚠️ Blockchain no inicializada - Balance real: 0 PRGLD
+                </div>
+              )}
               <button 
                 className="faucet-button" 
                 onClick={handleRequestFaucet}
-                disabled={isLoading || bootstrapState.mode !== 'network'}
-                title={bootstrapState.mode !== 'network' ? 'Disponible después del bootstrap' : ''}
+                disabled={
+                  isLoading || 
+                  !genesisState.exists ||
+                  !(walletDisplayState?.canRequestFaucet ?? (genesisStateManager ? genesisStateManager.isOperationAllowed('faucet') : false))
+                }
+                title={
+                  bootstrapState.mode !== 'network' ? 'Disponible después del bootstrap' :
+                  !genesisState.exists ? 'Requiere blockchain activa' :
+                  ''
+                }
               >
                 🚰 Solicitar Tokens Testnet
               </button>
@@ -407,7 +789,12 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
 
             <div className="recent-transactions">
               <h3>Transacciones Recientes</h3>
-              {transactions.length === 0 ? (
+              {!genesisState.exists ? (
+                <div className="no-genesis-message">
+                  <p>📋 No hay transacciones disponibles</p>
+                  <p>Las transacciones aparecerán una vez que se inicialice la blockchain</p>
+                </div>
+              ) : transactions.length === 0 ? (
                 <p>No hay transacciones recientes</p>
               ) : (
                 <div className="transactions-list">
@@ -499,10 +886,23 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
                 <button 
                   type="submit" 
                   className="send-button"
-                  disabled={isLoading || !sendForm.toAddress || !sendForm.amount}
+                  disabled={
+                    isLoading || 
+                    !sendForm.toAddress || 
+                    !sendForm.amount ||
+                    !genesisState.exists ||
+                    !(walletDisplayState?.canSendTransactions ?? (genesisStateManager ? genesisStateManager.isOperationAllowed('send_transaction') : false))
+                  }
+                  title={!genesisState.exists ? 'Requiere blockchain activa' : ''}
                 >
-                  {isLoading ? 'Enviando...' : 'Enviar Transacción'}
+                  {isLoading ? (loadingMessage || 'Enviando...') : 'Enviar Transacción'}
                 </button>
+                
+                {!genesisState.exists && (
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#dc3545' }}>
+                    ⚠️ Las transacciones requieren que la blockchain esté inicializada
+                  </div>
+                )}
               </form>
             </div>
           </div>
@@ -844,13 +1244,26 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
               </div>
             )}
             
+            {/* Genesis State Indicator */}
             <div style={{ fontSize: '12px', color: '#666' }}>
-              Red: <span style={{ color: bootstrapState.mode === 'network' ? '#28a745' : '#f39c12' }}>●</span> 
-              {bootstrapState.mode === 'network' ? 'Conectado' : 'Estableciendo'}
+              Génesis: <span style={{ color: genesisState.exists ? '#28a745' : '#dc3545' }}>●</span> 
+              {genesisState.exists ? 'Activo' : 'No inicializado'}
+            </div>
+            
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              Red: <span style={{ color: (bootstrapState.mode === 'network' && genesisState.exists) ? '#28a745' : '#f39c12' }}>●</span> 
+              {(bootstrapState.mode === 'network' && genesisState.exists) ? 'Conectado' : 'Estableciendo'}
             </div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-              Sincronización: {bootstrapState.mode === 'network' ? '100%' : 'En progreso'}
+              Sincronización: {(bootstrapState.mode === 'network' && genesisState.exists) ? '100%' : 'En progreso'}
             </div>
+            
+            {/* Status Message from WalletStateProvider */}
+            {walletDisplayState?.statusMessage && (
+              <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
+                {walletDisplayState.statusMessage}
+              </div>
+            )}
           </div>
         </div>
         

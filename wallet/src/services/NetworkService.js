@@ -1,13 +1,14 @@
 const axios = require('axios');
 const NetworkCoordinatorClient = require('./NetworkCoordinatorClient');
+const { ErrorHandlingService } = require('./ErrorHandlingService');
 
 class NetworkService {
   constructor() {
     // Testnet configuration
     this.testnetConfig = {
-      apiUrl: 'http://127.0.0.1:18080',  // Local testnet API (IPv4 explicit)
+      apiUrl: 'http://127.0.0.1:19080',  // Local testnet API (IPv4 explicit)
       networkId: 'playergold-testnet-genesis',
-      explorerUrl: 'http://127.0.0.1:18080/explorer'
+      explorerUrl: 'http://127.0.0.1:19080/explorer'
     };
     
     // Mainnet configuration (for future use)
@@ -32,6 +33,9 @@ class NetworkService {
         'https://backup2.playergold.es'
       ]
     );
+    
+    // Error handling service
+    this.errorHandler = new ErrorHandlingService();
     
     // Auto-register with coordinator when service starts
     this.initializeCoordinator();
@@ -165,6 +169,8 @@ class NetworkService {
    * @returns {Object} Balance information
    */
   async getBalance(address) {
+    const context = { operation: 'balance_query', address };
+    
     // Try local blockchain node first
     const nodeService = this.getBlockchainNodeService();
     if (nodeService && nodeService.isRunning) {
@@ -173,7 +179,8 @@ class NetworkService {
         if (localResult.success) {
           return {
             ...localResult,
-            source: 'local_node'
+            source: 'local_node',
+            isMock: false
           };
         }
       } catch (error) {
@@ -181,39 +188,49 @@ class NetworkService {
       }
     }
     
-    // Fallback to remote API
+    // Fallback to remote API with retry mechanism
     try {
-      const apiUrl = this.getBestApiUrl();
-      const response = await axios.get(`${apiUrl}/api/v1/balance/${address}`, {
-        timeout: 10000
-      });
-      
-      return {
-        success: true,
-        balance: response.data.balance || '0',
-        address: address,
-        network: this.currentNetwork,
-        source: 'remote_api'
+      const operation = async () => {
+        const apiUrl = this.getBestApiUrl();
+        const response = await axios.get(`${apiUrl}/api/v1/balance/${address}`, {
+          timeout: this.errorHandler.config.networkTimeout
+        });
+        
+        return {
+          success: true,
+          balance: response.data.balance || '0',
+          address: address,
+          network: this.currentNetwork,
+          source: 'remote_api',
+          isMock: false
+        };
       };
+      
+      return await this.errorHandler.retryOperation('network_timeout', operation, context);
+      
     } catch (error) {
       console.error('Error getting balance:', error.message);
       
-      // Return mock balance for development
-      if (this.currentNetwork === 'testnet') {
-        return {
-          success: true,
-          balance: '1000.0', // Mock testnet balance
-          address: address,
-          network: this.currentNetwork,
-          mock: true,
-          source: 'mock'
-        };
+      // Determine error type
+      let errorType = 'network_disconnected';
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorType = 'network_timeout';
+      } else if (error.response?.status >= 500) {
+        errorType = 'api_unavailable';
       }
+      
+      const errorInfo = this.errorHandler.handleError(errorType, error, context);
       
       return {
         success: false,
-        error: error.message,
-        balance: '0'
+        error: errorInfo.message,
+        errorType: errorType,
+        errorInfo: errorInfo,
+        balance: '0',
+        address: address,
+        network: this.currentNetwork,
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -251,21 +268,10 @@ class NetworkService {
     } catch (error) {
       console.error('Error sending transaction:', error.message);
       
-      // Return mock transaction for development
-      if (this.currentNetwork === 'testnet') {
-        const mockTxId = 'mock_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-        return {
-          success: true,
-          transactionId: mockTxId,
-          hash: mockTxId,
-          network: this.currentNetwork,
-          mock: true
-        };
-      }
-      
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        requiresGenesis: true
       };
     }
   }
@@ -278,54 +284,51 @@ class NetworkService {
    * @returns {Object} Transaction history
    */
   async getTransactionHistory(address, limit = 50, offset = 0) {
+    const context = { operation: 'transaction_history', address, limit, offset };
+    
     try {
-      const response = await axios.get(`${this.config.apiUrl}/api/v1/transactions/history/${address}`, {
-        params: { limit, offset },
-        timeout: 10000
-      });
-      
-      return {
-        success: true,
-        transactions: response.data.transactions || [],
-        total: response.data.total || 0,
-        address: address,
-        network: this.currentNetwork
-      };
-    } catch (error) {
-      console.error('Error getting transaction history:', error.message);
-      
-      // Return mock transactions for development
-      if (this.currentNetwork === 'testnet') {
-        const mockTransactions = [
-          {
-            id: 'faucet_tx_initial',
-            type: 'faucet_transfer',
-            from: 'PGfaucet000000000000000000000000000000000',
-            to: address,
-            amount: '1000.0',
-            fee: '0.0',
-            timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-            status: 'confirmed',
-            memo: 'Testnet faucet - Initial 1000 PRGLD',
-            blockNumber: 1,
-            confirmations: 1
-          }
-        ];
+      const operation = async () => {
+        const response = await axios.get(`${this.config.apiUrl}/api/v1/transactions/history/${address}`, {
+          params: { limit, offset },
+          timeout: this.errorHandler.config.networkTimeout
+        });
         
         return {
           success: true,
-          transactions: mockTransactions,
-          total: mockTransactions.length,
+          transactions: response.data.transactions || [],
+          total: response.data.total || 0,
           address: address,
           network: this.currentNetwork,
-          mock: true
+          isMock: false
         };
+      };
+      
+      return await this.errorHandler.retryOperation('network_timeout', operation, context);
+      
+    } catch (error) {
+      console.error('Error getting transaction history:', error.message);
+      
+      // Determine error type
+      let errorType = 'network_disconnected';
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorType = 'network_timeout';
+      } else if (error.response?.status >= 500) {
+        errorType = 'api_unavailable';
       }
+      
+      const errorInfo = this.errorHandler.handleError(errorType, error, context);
       
       return {
         success: false,
-        error: error.message,
-        transactions: []
+        error: errorInfo.message,
+        errorType: errorType,
+        errorInfo: errorInfo,
+        transactions: [],
+        total: 0,
+        address: address,
+        network: this.currentNetwork,
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -335,39 +338,45 @@ class NetworkService {
    * @returns {Object} Network status
    */
   async getNetworkStatus() {
+    const context = { operation: 'network_status' };
+    
     try {
-      const response = await axios.get(`${this.config.apiUrl}/api/v1/network/status`, {
-        timeout: 5000
-      });
-      
-      return {
-        success: true,
-        status: response.data,
-        network: this.currentNetwork
+      const operation = async () => {
+        const response = await axios.get(`${this.config.apiUrl}/api/v1/network/status`, {
+          timeout: 5000
+        });
+        
+        return {
+          success: true,
+          status: response.data,
+          network: this.currentNetwork,
+          isMock: false
+        };
       };
+      
+      return await this.errorHandler.retryOperation('network_timeout', operation, context);
+      
     } catch (error) {
       console.error('Error getting network status:', error.message);
       
-      // Return mock status for development
-      if (this.currentNetwork === 'testnet') {
-        return {
-          success: true,
-          status: {
-            network: this.currentNetwork,
-            networkId: this.config.networkId,
-            blockHeight: 150,
-            connectedPeers: 2,
-            isValidator: false,
-            syncStatus: 'synced'
-          },
-          network: this.currentNetwork,
-          mock: true
-        };
+      // Determine error type
+      let errorType = 'network_disconnected';
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorType = 'network_timeout';
+      } else if (error.response?.status >= 500) {
+        errorType = 'api_unavailable';
       }
+      
+      const errorInfo = this.errorHandler.handleError(errorType, error, context);
       
       return {
         success: false,
-        error: error.message
+        error: errorInfo.message,
+        errorType: errorType,
+        errorInfo: errorInfo,
+        network: this.currentNetwork,
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -379,10 +388,20 @@ class NetworkService {
    * @returns {Object} Faucet result
    */
   async requestFaucetTokens(address, amount = 1000) {
+    const context = { operation: 'faucet_request', address, amount };
+    
     if (this.currentNetwork !== 'testnet') {
+      const errorInfo = this.errorHandler.handleError('operation_not_allowed', 
+        new Error('Faucet is only available on testnet'), context);
+      
       return {
         success: false,
-        error: 'Faucet is only available on testnet'
+        error: errorInfo.message,
+        errorType: 'operation_not_allowed',
+        errorInfo: errorInfo,
+        network: this.currentNetwork,
+        requiresGenesis: true,
+        isMock: false
       };
     }
 
@@ -395,7 +414,8 @@ class NetworkService {
         if (localResult.success) {
           return {
             ...localResult,
-            source: 'local_node'
+            source: 'local_node',
+            isMock: false
           };
         }
       } catch (error) {
@@ -403,40 +423,107 @@ class NetworkService {
       }
     }
 
-    // Fallback to remote faucet
+    // Fallback to remote faucet with retry mechanism
     try {
-      console.log(`🚰 Requesting faucet tokens from remote: ${amount} PRGLD to ${address}`);
-      const apiUrl = this.getBestApiUrl();
-      console.log(`🌐 API URL: ${apiUrl}/api/v1/faucet`);
-      
-      const response = await axios.post(`${apiUrl}/api/v1/faucet`, {
-        address: address,
-        amount: amount
-      }, {
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log(`✅ Faucet response:`, response.data);
-      
-      return {
-        success: true,
-        transactionId: response.data.transactionId,
-        amount: amount,
-        address: address,
-        message: `Requested ${amount} PRGLD from testnet faucet`,
-        source: 'remote_api'
+      const operation = async () => {
+        console.log(`🚰 Requesting faucet tokens from remote: ${amount} PRGLD to ${address}`);
+        const apiUrl = this.getBestApiUrl();
+        console.log(`🌐 API URL: ${apiUrl}/api/v1/faucet`);
+        
+        const response = await axios.post(`${apiUrl}/api/v1/faucet`, {
+          address: address,
+          amount: amount
+        }, {
+          timeout: this.errorHandler.config.networkTimeout,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log(`✅ Faucet response:`, response.data);
+        
+        return {
+          success: true,
+          transactionId: response.data.transactionId,
+          amount: amount,
+          address: address,
+          message: `Requested ${amount} PRGLD from testnet faucet`,
+          network: this.currentNetwork,
+          source: 'remote_api',
+          isMock: false
+        };
       };
+      
+      return await this.errorHandler.retryOperation('network_timeout', operation, context);
+      
     } catch (error) {
       console.error('❌ Error requesting faucet tokens:', error.message);
       console.error('❌ Error details:', error.response?.data || error);
       
+      // Determine error type
+      let errorType = 'network_disconnected';
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorType = 'network_timeout';
+      } else if (error.response?.status >= 500) {
+        errorType = 'api_unavailable';
+      } else if (error.response?.status === 429) {
+        errorType = 'operation_not_allowed'; // Rate limited
+      }
+      
+      const errorInfo = this.errorHandler.handleError(errorType, error, context);
+      
       return {
         success: false,
-        error: `Faucet request failed: ${error.message}`,
-        details: error.response?.data || error.message
+        error: errorInfo.message,
+        errorType: errorType,
+        errorInfo: errorInfo,
+        details: error.response?.data || error.message,
+        network: this.currentNetwork,
+        requiresGenesis: true,
+        isMock: false
+      };
+    }
+  }
+
+  /**
+   * Get mining challenge from network
+   * @returns {Promise<Object>} Challenge response
+   */
+  async getMiningChallenge() {
+    try {
+      // Check if genesis exists first
+      const genesisState = await this.genesisStateManager.checkGenesisExists();
+      if (!genesisState.exists) {
+        return {
+          success: false,
+          error: 'Genesis block required for mining challenges',
+          requiresGenesis: true,
+          isMock: false
+        };
+      }
+
+      // Try to get challenge from network coordinator
+      const response = await axios.get(`${this.coordinatorUrl}/api/mining/challenge`, {
+        timeout: this.timeout,
+        headers: this.getHeaders()
+      });
+
+      return {
+        success: true,
+        challenge: response.data.challenge,
+        network: this.currentNetwork,
+        source: 'network_coordinator',
+        isMock: false
+      };
+    } catch (error) {
+      console.error('Failed to get mining challenge:', error);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || error.message,
+        network: this.currentNetwork,
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -498,27 +585,11 @@ class NetworkService {
     } catch (error) {
       console.error('❌ Error getting mining stats:', error.message);
       
-      // Return mock stats for development
-      if (this.currentNetwork === 'testnet') {
-        return {
-          success: true,
-          mining_stats: {
-            blocks_validated: 0,
-            rewards_earned: 0,
-            challenges_processed: 0,
-            success_rate: 100.0,
-            reputation: 100.0,
-            is_mining: false,
-            last_reward: null
-          },
-          network: this.currentNetwork,
-          mock: true
-        };
-      }
-      
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        network: this.currentNetwork,
+        requiresGenesis: true
       };
     }
   }

@@ -6,6 +6,7 @@ const Store = require('electron-store');
 const CryptoJS = require('crypto-js');
 const NetworkService = require('./NetworkService');
 const TransactionService = require('./TransactionService');
+const { GenesisStateManager } = require('./GenesisStateManager');
 
 class WalletService {
   constructor() {
@@ -13,6 +14,10 @@ class WalletService {
       name: 'playergold-wallets',
       encryptionKey: 'playergold-secure-key'
     });
+    
+    // Initialize GenesisStateManager
+    this.genesisStateManager = new GenesisStateManager();
+    this.genesisStateManager.initialize(NetworkService);
   }
 
   /**
@@ -271,6 +276,54 @@ class WalletService {
     return await this.generateWallet();
   }
 
+  static async generateOfflineWallet() {
+    // Generate 12-word mnemonic phrase (purely local operation)
+    const mnemonic = bip39.generateMnemonic(128);
+    
+    // Generate seed from mnemonic (purely local operation)
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    
+    // Create HD wallet (purely local operation)
+    const hdkey = HDKey.fromMasterSeed(seed);
+    
+    // Derive key using BIP44 path for PlayerGold (m/44'/60'/0'/0/0)
+    const derivedKey = hdkey.derive("m/44'/60'/0'/0/0");
+    
+    // Get private and public keys (purely local operation)
+    const privateKey = derivedKey.privateKey;
+    const publicKey = secp256k1.publicKeyCreate(privateKey);
+    
+    // Generate address from public key (purely local operation)
+    const address = WalletService.generateAddress(publicKey);
+    
+    // Validate generated address locally
+    if (!WalletService.isValidAddress(address)) {
+      throw new Error('Generated address failed validation');
+    }
+    
+    // Create wallet object (without storing it)
+    const wallet = {
+      id: crypto.randomUUID(),
+      name: `Wallet ${Date.now()}`,
+      address: address,
+      mnemonic: mnemonic,
+      privateKey: privateKey.toString('hex'),
+      publicKey: publicKey.toString('hex'),
+      createdAt: new Date().toISOString(),
+      balance: '0',
+      networkIndependent: true
+    };
+
+    return {
+      id: wallet.id,
+      name: wallet.name,
+      address: wallet.address,
+      mnemonic: wallet.mnemonic,
+      createdAt: wallet.createdAt,
+      balance: wallet.balance
+    };
+  }
+
   /**
    * Generate address from public key
    * @param {Buffer} publicKey - Public key buffer
@@ -283,12 +336,24 @@ class WalletService {
     return address;
   }
 
+  static generateAddress(publicKey) {
+    // Simple address generation (in production, use proper address format)
+    const hash = crypto.createHash('sha256').update(publicKey).digest();
+    const address = 'PG' + hash.toString('hex').substring(0, 38);
+    return address;
+  }
+
   /**
    * Validate address format locally
    * @param {string} address - Address to validate
    * @returns {boolean} True if valid
    */
   isValidAddress(address) {
+    // PlayerGold addresses start with 'PG' and are 40 characters total
+    return /^PG[a-fA-F0-9]{38}$/.test(address);
+  }
+
+  static isValidAddress(address) {
     // PlayerGold addresses start with 'PG' and are 40 characters total
     return /^PG[a-fA-F0-9]{38}$/.test(address);
   }
@@ -356,20 +421,64 @@ class WalletService {
         throw new Error('Wallet not found');
       }
 
+      // Check genesis state first
+      const genesisState = await this.genesisStateManager.checkGenesisExists();
+      
+      if (!genesisState.exists) {
+        // No genesis block exists - return zero balance with clear message
+        return {
+          success: true,
+          balance: '0',
+          requiresGenesis: true,
+          message: 'Blockchain not initialized - genesis block required',
+          address: wallet.address
+        };
+      }
+
+      // Check if balance query operation is allowed
+      if (!this.genesisStateManager.isOperationAllowed('balance_query')) {
+        const networkState = this.genesisStateManager.getCurrentNetworkState();
+        return {
+          success: false,
+          balance: '0',
+          error: `Balance query not available in current network state: ${networkState}`,
+          requiresGenesis: !genesisState.exists,
+          address: wallet.address
+        };
+      }
+
+      // Genesis exists and operation is allowed - get real balance
       const balanceResult = await NetworkService.getBalance(wallet.address);
       
       if (balanceResult.success) {
-        // Update cached balance
+        // Update cached balance only if we got real data
         wallet.balance = balanceResult.balance;
         this.store.set('wallets', wallets);
+        
+        // Ensure no mock data is returned
+        return {
+          ...balanceResult,
+          requiresGenesis: false,
+          isMock: false
+        };
+      } else {
+        // Network error - return error state with zero balance
+        return {
+          success: false,
+          error: balanceResult.error || 'Failed to fetch balance from network',
+          balance: '0',
+          requiresGenesis: false,
+          isMock: false,
+          address: wallet.address
+        };
       }
-
-      return balanceResult;
     } catch (error) {
       return {
         success: false,
         error: error.message,
-        balance: '0'
+        balance: '0',
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -387,6 +496,29 @@ class WalletService {
       
       if (!wallet) {
         throw new Error('Wallet not found');
+      }
+
+      // Check genesis state first
+      const genesisState = await this.genesisStateManager.checkGenesisExists();
+      
+      if (!genesisState.exists) {
+        return {
+          success: false,
+          error: 'Cannot send transactions - blockchain not initialized (genesis block required)',
+          requiresGenesis: true,
+          operationBlocked: true
+        };
+      }
+
+      // Check if send transaction operation is allowed
+      if (!this.genesisStateManager.isOperationAllowed('send_transaction')) {
+        const networkState = this.genesisStateManager.getCurrentNetworkState();
+        return {
+          success: false,
+          error: `Transaction sending not available in current network state: ${networkState}`,
+          requiresGenesis: !genesisState.exists,
+          operationBlocked: true
+        };
       }
 
       // Decrypt private key
@@ -408,11 +540,17 @@ class WalletService {
       // Send transaction through TransactionService
       const result = await TransactionService.sendTransaction(txParams);
       
-      return result;
+      return {
+        ...result,
+        requiresGenesis: false,
+        operationBlocked: false
+      };
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        requiresGenesis: true,
+        operationBlocked: false
       };
     }
   }
@@ -433,18 +571,54 @@ class WalletService {
         throw new Error('Wallet not found');
       }
 
+      // Check genesis state first
+      const genesisState = await this.genesisStateManager.checkGenesisExists();
+      
+      if (!genesisState.exists) {
+        // No genesis block exists - return empty history with clear message
+        return {
+          success: true,
+          transactions: [],
+          requiresGenesis: true,
+          message: 'No transaction history available - blockchain not initialized',
+          address: wallet.address,
+          isMock: false
+        };
+      }
+
+      // Check if transaction history operation is allowed
+      if (!this.genesisStateManager.isOperationAllowed('transaction_history')) {
+        const networkState = this.genesisStateManager.getCurrentNetworkState();
+        return {
+          success: false,
+          transactions: [],
+          error: `Transaction history not available in current network state: ${networkState}`,
+          requiresGenesis: !genesisState.exists,
+          address: wallet.address,
+          isMock: false
+        };
+      }
+
+      // Genesis exists and operation is allowed - get real transaction history
       const result = await TransactionService.getTransactionHistory(
         wallet.address, 
         limit, 
         offset
       );
       
-      return result;
+      // Ensure no mock data is returned
+      return {
+        ...result,
+        requiresGenesis: false,
+        isMock: false
+      };
     } catch (error) {
       return {
         success: false,
         error: error.message,
-        transactions: []
+        transactions: [],
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -476,22 +650,40 @@ class WalletService {
    */
   async syncWallet(walletId) {
     try {
-      // Get fresh balance
+      // Clear any cached mock data first
+      const wallets = this.store.get('wallets', []);
+      const wallet = wallets.find(w => w.id === walletId);
+      
+      if (wallet) {
+        // Reset cached balance to ensure fresh data
+        wallet.balance = '0';
+        this.store.set('wallets', wallets);
+      }
+
+      // Get fresh balance (will check genesis state)
       const balanceResult = await this.getWalletBalance(walletId);
       
-      // Get recent transactions
+      // Get recent transactions (will check genesis state)
       const historyResult = await this.getTransactionHistory(walletId, 10, 0);
       
       return {
         success: true,
         balance: balanceResult.balance || '0',
         recentTransactions: historyResult.transactions || [],
-        syncedAt: new Date().toISOString()
+        requiresGenesis: balanceResult.requiresGenesis || historyResult.requiresGenesis || false,
+        networkState: this.genesisStateManager.getCurrentNetworkState(),
+        genesisExists: (await this.genesisStateManager.checkGenesisExists()).exists,
+        syncedAt: new Date().toISOString(),
+        isMock: false
       };
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        balance: '0',
+        recentTransactions: [],
+        requiresGenesis: true,
+        isMock: false
       };
     }
   }
@@ -511,6 +703,29 @@ class WalletService {
         throw new Error('Wallet not found');
       }
 
+      // Check genesis state first
+      const genesisState = await this.genesisStateManager.checkGenesisExists();
+      
+      if (!genesisState.exists) {
+        return {
+          success: false,
+          error: 'Cannot request faucet tokens - blockchain not initialized (genesis block required)',
+          requiresGenesis: true,
+          operationBlocked: true
+        };
+      }
+
+      // Check if faucet operation is allowed
+      if (!this.genesisStateManager.isOperationAllowed('faucet')) {
+        const networkState = this.genesisStateManager.getCurrentNetworkState();
+        return {
+          success: false,
+          error: `Faucet requests not available in current network state: ${networkState}`,
+          requiresGenesis: !genesisState.exists,
+          operationBlocked: true
+        };
+      }
+
       const result = await NetworkService.requestFaucetTokens(wallet.address, amount);
       
       if (result.success) {
@@ -520,11 +735,17 @@ class WalletService {
         }, 5000); // Wait 5 seconds then refresh
       }
       
-      return result;
+      return {
+        ...result,
+        requiresGenesis: false,
+        operationBlocked: false
+      };
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        requiresGenesis: true,
+        operationBlocked: false
       };
     }
   }
@@ -557,6 +778,38 @@ class WalletService {
       };
     }
   }
+
+  /**
+   * Get genesis state manager instance (for testing)
+   * @returns {GenesisStateManager} Genesis state manager instance
+   */
+  getGenesisStateManager() {
+    return this.genesisStateManager;
+  }
+
+  /**
+   * Check if operation is allowed in current state
+   * @param {string} operation - Operation to check
+   * @returns {boolean} True if operation is allowed
+   */
+  isOperationAllowed(operation) {
+    return this.genesisStateManager.isOperationAllowed(operation);
+  }
+
+  /**
+   * Get current network state
+   * @returns {string} Current network state
+   */
+  getCurrentNetworkState() {
+    return this.genesisStateManager.getCurrentNetworkState();
+  }
 }
 
-module.exports = new WalletService();
+const walletServiceInstance = new WalletService();
+
+// Add static methods to the instance for backward compatibility with tests
+walletServiceInstance.isValidAddress = WalletService.isValidAddress;
+walletServiceInstance.generateAddress = WalletService.generateAddress;
+walletServiceInstance.generateOfflineWallet = WalletService.generateOfflineWallet;
+
+module.exports = walletServiceInstance;
