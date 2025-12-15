@@ -42,6 +42,14 @@ class NetworkService {
   }
   
   /**
+   * Get Network Coordinator client instance
+   * @returns {NetworkCoordinatorClient} Coordinator client
+   */
+  getCoordinatorClient() {
+    return this.coordinatorClient;
+  }
+
+  /**
    * Initialize Network Coordinator integration
    */
   async initializeCoordinator() {

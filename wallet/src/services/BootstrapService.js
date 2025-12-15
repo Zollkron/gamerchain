@@ -10,6 +10,7 @@ const { BootstrapLogger, BootstrapErrorHandler } = require('./BootstrapLogger');
 const { UserFeedbackManager } = require('./UserFeedbackManager');
 const { PeerDiscoveryManager, NetworkMode: PeerNetworkMode } = require('./PeerDiscoveryManager');
 const { GenesisCoordinator } = require('./GenesisCoordinator');
+const { GuidedBootstrapManager, BootstrapStrategy } = require('./GuidedBootstrapManager');
 
 /**
  * Bootstrap state machine modes
@@ -41,7 +42,7 @@ const BootstrapErrorType = {
 };
 
 class BootstrapService extends EventEmitter {
-  constructor() {
+  constructor(networkCoordinatorClient = null) {
     super();
     
     // Initialize bootstrap state
@@ -53,7 +54,8 @@ class BootstrapService extends EventEmitter {
       genesisBlock: null,
       networkConfig: null,
       lastError: null,
-      isReady: false
+      isReady: false,
+      bootstrapStrategy: BootstrapStrategy.COORDINATOR_GUIDED
     };
     
     // Configuration
@@ -63,7 +65,8 @@ class BootstrapService extends EventEmitter {
       maxRetries: 3,
       retryBackoffMs: 1000,
       minPeersForGenesis: 2,
-      networkMode: NetworkMode.TESTNET
+      networkMode: NetworkMode.TESTNET,
+      preferCoordinatorGuidance: true
     };
     
     // Feature availability during bootstrap
@@ -84,6 +87,20 @@ class BootstrapService extends EventEmitter {
     // P2P peer discovery manager
     this.peerDiscoveryManager = new PeerDiscoveryManager(this.config.networkMode);
     this.setupPeerDiscoveryListeners();
+    
+    // Guided bootstrap manager (uses coordinator data)
+    this.networkCoordinatorClient = networkCoordinatorClient;
+    if (this.networkCoordinatorClient) {
+      this.guidedBootstrapManager = new GuidedBootstrapManager(
+        this.networkCoordinatorClient,
+        this.peerDiscoveryManager
+      );
+      this.setupGuidedBootstrapListeners();
+      this.logger.info('Guided bootstrap enabled with network coordinator');
+    } else {
+      this.guidedBootstrapManager = null;
+      this.logger.info('Guided bootstrap disabled - no network coordinator available');
+    }
     
     // Genesis coordinator for distributed block creation
     this.genesisCoordinator = new GenesisCoordinator();
@@ -208,7 +225,7 @@ class BootstrapService extends EventEmitter {
   }
   
   /**
-   * Start P2P peer discovery process
+   * Start P2P peer discovery process with guided bootstrap
    */
   async startPeerDiscovery() {
     if (!this.state.walletAddress || !this.state.selectedModel) {
@@ -216,7 +233,7 @@ class BootstrapService extends EventEmitter {
     }
     
     try {
-      this.logger.info('Starting P2P peer discovery...');
+      this.logger.info('Starting intelligent P2P peer discovery...');
       
       this.setState({
         mode: BootstrapMode.DISCOVERY,
@@ -228,7 +245,7 @@ class BootstrapService extends EventEmitter {
         phase: 'initializing',
         peers: [],
         elapsed: 0,
-        message: 'Iniciando búsqueda P2P de peers...'
+        message: 'Iniciando búsqueda inteligente de peers...'
       });
       
       this.emit('stateChanged', this.state);
@@ -237,8 +254,57 @@ class BootstrapService extends EventEmitter {
       // Track discovery start time
       this.discoveryStartTime = Date.now();
       
-      // Start P2P peer discovery with timeout handling
-      const discoveredPeers = await this.peerDiscoveryManager.scanForPeers(this.config.networkMode);
+      let discoveredPeers = [];
+      
+      // Try guided bootstrap first if available
+      if (this.guidedBootstrapManager && this.config.preferCoordinatorGuidance) {
+        try {
+          this.logger.info('Attempting coordinator-guided bootstrap');
+          
+          this.feedbackManager.displayPeerDiscoveryStatus({
+            phase: 'coordinator_guided',
+            peers: [],
+            elapsed: Date.now() - this.discoveryStartTime,
+            message: 'Conectando a nodos conocidos del coordinador...'
+          });
+          
+          discoveredPeers = await this.guidedBootstrapManager.startGuidedBootstrap(
+            this.state.walletAddress,
+            { networkMode: this.config.networkMode }
+          );
+          
+          if (discoveredPeers.length > 0) {
+            this.setState({ bootstrapStrategy: BootstrapStrategy.COORDINATOR_GUIDED });
+            this.logger.info(`Coordinator-guided bootstrap successful: ${discoveredPeers.length} peers`);
+          }
+          
+        } catch (guidedError) {
+          this.logger.warn('Coordinator-guided bootstrap failed, falling back to network scan:', guidedError.message);
+          
+          this.feedbackManager.displayPeerDiscoveryStatus({
+            phase: 'fallback_to_scan',
+            peers: [],
+            elapsed: Date.now() - this.discoveryStartTime,
+            message: 'Coordinador no disponible, escaneando red local...'
+          });
+        }
+      }
+      
+      // Fallback to traditional network scanning if guided bootstrap failed or unavailable
+      if (discoveredPeers.length === 0) {
+        this.logger.info('Starting traditional network scan');
+        this.setState({ bootstrapStrategy: BootstrapStrategy.NETWORK_SCAN });
+        
+        this.feedbackManager.displayPeerDiscoveryStatus({
+          phase: 'network_scanning',
+          peers: [],
+          elapsed: Date.now() - this.discoveryStartTime,
+          message: 'Escaneando red local en busca de peers...'
+        });
+        
+        discoveredPeers = await this.peerDiscoveryManager.scanForPeers(this.config.networkMode);
+      }
+      
       this.onPeersDiscovered(discoveredPeers);
       
     } catch (error) {
@@ -1049,6 +1115,34 @@ class BootstrapService extends EventEmitter {
   }
   
   /**
+   * Get bootstrap statistics and performance metrics
+   * @returns {Object} Bootstrap statistics
+   */
+  getBootstrapStats() {
+    const stats = {
+      currentMode: this.state.mode,
+      bootstrapStrategy: this.state.bootstrapStrategy,
+      discoveredPeers: this.state.discoveredPeers.length,
+      isReady: this.state.isReady,
+      hasNetworkCoordinator: !!this.networkCoordinatorClient,
+      hasGuidedBootstrap: !!this.guidedBootstrapManager
+    };
+    
+    // Add guided bootstrap stats if available
+    if (this.guidedBootstrapManager) {
+      const guidedStats = this.guidedBootstrapManager.getBootstrapStats();
+      stats.guidedBootstrap = guidedStats;
+    }
+    
+    // Add timing information
+    if (this.discoveryStartTime) {
+      stats.discoveryElapsed = Date.now() - this.discoveryStartTime;
+    }
+    
+    return stats;
+  }
+  
+  /**
    * Setup event listeners for peer discovery manager
    */
   setupPeerDiscoveryListeners() {
@@ -1079,6 +1173,91 @@ class BootstrapService extends EventEmitter {
     this.peerDiscoveryManager.on('availabilityBroadcast', (data) => {
       this.logger.info(`Broadcasting availability: ${data.walletAddress}`);
       this.emit('broadcastingAvailability', data);
+    });
+  }
+
+  /**
+   * Setup event listeners for guided bootstrap manager
+   */
+  setupGuidedBootstrapListeners() {
+    if (!this.guidedBootstrapManager) {
+      return;
+    }
+    
+    this.guidedBootstrapManager.on('bootstrapPhaseChanged', (phase) => {
+      this.logger.info(`Guided bootstrap phase changed to: ${phase}`);
+      
+      const phaseMessages = {
+        'fetching_network_map': 'Obteniendo mapa de red del coordinador...',
+        'coordinator_guided': 'Conectando a nodos conocidos...',
+        'network_scan_fallback': 'Escaneando red local como respaldo...'
+      };
+      
+      this.feedbackManager.displayPeerDiscoveryStatus({
+        phase: phase,
+        peers: this.state.discoveredPeers,
+        elapsed: Date.now() - (this.discoveryStartTime || Date.now()),
+        message: phaseMessages[phase] || `Fase de bootstrap: ${phase}`
+      });
+    });
+    
+    this.guidedBootstrapManager.on('networkMapUpdated', (networkMap) => {
+      this.logger.info(`Network map updated: ${networkMap.active_nodes} active nodes available`);
+      
+      this.feedbackManager.displayPeerDiscoveryStatus({
+        phase: 'network_map_updated',
+        peers: this.state.discoveredPeers,
+        elapsed: Date.now() - (this.discoveryStartTime || Date.now()),
+        message: `Mapa de red actualizado: ${networkMap.active_nodes} nodos activos encontrados`
+      });
+    });
+    
+    this.guidedBootstrapManager.on('nodeConnected', (peerInfo, source) => {
+      this.logger.info(`Connected to ${source} node: ${peerInfo.id} at ${peerInfo.address}:${peerInfo.port}`);
+      
+      // Add to discovered peers
+      const currentPeers = [...this.state.discoveredPeers];
+      if (!currentPeers.find(p => p.id === peerInfo.id)) {
+        currentPeers.push(peerInfo);
+        this.setState({ discoveredPeers: currentPeers });
+      }
+      
+      this.feedbackManager.displayPeerDiscoveryStatus({
+        phase: 'connecting',
+        peers: currentPeers,
+        elapsed: Date.now() - (this.discoveryStartTime || Date.now()),
+        message: `Conectado a nodo ${source}: ${peerInfo.address}:${peerInfo.port}`
+      });
+    });
+    
+    this.guidedBootstrapManager.on('bootstrapCompleted', (peers, strategy) => {
+      this.logger.info(`Guided bootstrap completed with strategy ${strategy}: ${peers.length} peers`);
+      
+      const strategyMessages = {
+        [BootstrapStrategy.COORDINATOR_GUIDED]: 'Bootstrap completado usando coordinador de red',
+        [BootstrapStrategy.NETWORK_SCAN]: 'Bootstrap completado usando escaneo de red',
+        [BootstrapStrategy.HYBRID]: 'Bootstrap completado usando estrategia híbrida'
+      };
+      
+      this.feedbackManager.displayPeerDiscoveryStatus({
+        phase: 'completed',
+        peers: peers,
+        elapsed: Date.now() - (this.discoveryStartTime || Date.now()),
+        message: strategyMessages[strategy] || 'Bootstrap completado'
+      });
+    });
+    
+    this.guidedBootstrapManager.on('bootstrapFailed', (error) => {
+      this.logger.error('Guided bootstrap failed:', error);
+      this.handleError(BootstrapErrorType.NETWORK_TIMEOUT, 'Guided bootstrap failed', error);
+    });
+    
+    this.guidedBootstrapManager.on('connectionAttempt', (attempt) => {
+      if (attempt.success) {
+        this.logger.debug(`Connection successful: ${attempt.nodeId} (${attempt.latency}ms)`);
+      } else {
+        this.logger.debug(`Connection failed: ${attempt.nodeId} - ${attempt.error?.message}`);
+      }
     });
   }
 
@@ -1146,6 +1325,11 @@ class BootstrapService extends EventEmitter {
       this.peerDiscoveryManager.removeAllListeners();
     }
     
+    // Cleanup guided bootstrap manager
+    if (this.guidedBootstrapManager) {
+      this.guidedBootstrapManager.cleanup();
+    }
+    
     // Cleanup genesis coordinator
     if (this.genesisCoordinator) {
       this.genesisCoordinator.reset();
@@ -1160,7 +1344,8 @@ class BootstrapService extends EventEmitter {
       genesisBlock: null,
       networkConfig: null,
       lastError: null,
-      isReady: false
+      isReady: false,
+      bootstrapStrategy: BootstrapStrategy.COORDINATOR_GUIDED
     };
     
     // Restore restricted features

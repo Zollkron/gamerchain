@@ -6,9 +6,13 @@ const isDev = process.env.NODE_ENV === 'development';
 // Import network validator for mandatory validation
 const NetworkValidator = require('./services/NetworkValidator');
 
+// Import service integration manager for guided bootstrap
+const serviceIntegrationManager = require('./services/ServiceIntegrationManager');
+
 let mainWindow;
 let networkValidator;
 let networkValidationResult = null;
+let walletServices = null;
 
 // Portable mode detection and configuration
 const isPortableMode = process.env.PLAYERGOLD_PORTABLE === 'true' || process.argv.includes('--portable');
@@ -97,12 +101,36 @@ app.whenReady().then(async () => {
   }
   
   console.log('✅ Network validation successful, wallet can operate');
+  
+  // Initialize wallet services with guided bootstrap
+  try {
+    console.log('🔧 Initializing wallet services with guided bootstrap...');
+    walletServices = await serviceIntegrationManager.initializeServices();
+    console.log('✅ Wallet services initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize wallet services:', error);
+    // Continue without guided bootstrap if initialization fails
+  }
+  
   createWindow();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', async () => {
+  // Cleanup wallet services
+  if (walletServices) {
+    try {
+      console.log('🧹 Cleaning up wallet services...');
+      await serviceIntegrationManager.cleanup();
+      console.log('✅ Wallet services cleanup completed');
+    } catch (error) {
+      console.error('❌ Error during wallet services cleanup:', error);
+    }
   }
 });
 
@@ -1068,6 +1096,212 @@ ipcMain.handle('can-wallet-operate', async () => {
     return {
       canOperate: false,
       reason: error.message
+    };
+  }
+});
+
+// ========================================
+// Guided Bootstrap Handlers
+// ========================================
+
+ipcMain.handle('get-bootstrap-service-status', async () => {
+  try {
+    if (!walletServices || !walletServices.bootstrapService) {
+      return {
+        success: false,
+        error: 'Bootstrap service not initialized'
+      };
+    }
+    
+    const bootstrapService = walletServices.bootstrapService;
+    const state = bootstrapService.getState();
+    const stats = bootstrapService.getBootstrapStats();
+    
+    return {
+      success: true,
+      state: state,
+      stats: stats,
+      isGuidedBootstrapAvailable: !!bootstrapService.guidedBootstrapManager
+    };
+  } catch (error) {
+    console.error('Error getting bootstrap service status:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('start-guided-bootstrap', async (event, walletAddress) => {
+  try {
+    if (!walletServices || !walletServices.bootstrapService) {
+      return {
+        success: false,
+        error: 'Bootstrap service not initialized'
+      };
+    }
+    
+    const bootstrapService = walletServices.bootstrapService;
+    
+    // Set up event listeners for progress updates
+    const handleStateChange = (state) => {
+      event.sender.send('bootstrap-state-changed', state);
+    };
+    
+    const handlePeersDiscovered = (peers) => {
+      event.sender.send('bootstrap-peers-discovered', peers);
+    };
+    
+    const handleNetworkModeActivated = () => {
+      event.sender.send('bootstrap-network-activated');
+    };
+    
+    const handleError = (error) => {
+      event.sender.send('bootstrap-error', error);
+    };
+    
+    // Add listeners
+    bootstrapService.on('stateChanged', handleStateChange);
+    bootstrapService.on('peersDiscovered', handlePeersDiscovered);
+    bootstrapService.on('networkModeActivated', handleNetworkModeActivated);
+    bootstrapService.on('error', handleError);
+    
+    // Clean up listeners when renderer is destroyed
+    event.sender.once('destroyed', () => {
+      bootstrapService.removeListener('stateChanged', handleStateChange);
+      bootstrapService.removeListener('peersDiscovered', handlePeersDiscovered);
+      bootstrapService.removeListener('networkModeActivated', handleNetworkModeActivated);
+      bootstrapService.removeListener('error', handleError);
+    });
+    
+    // Start the guided bootstrap process
+    await bootstrapService.startPeerDiscovery();
+    
+    return {
+      success: true,
+      message: 'Guided bootstrap started successfully'
+    };
+  } catch (error) {
+    console.error('Error starting guided bootstrap:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-network-coordinator-status', async () => {
+  try {
+    if (!walletServices || !walletServices.networkService) {
+      return {
+        success: false,
+        error: 'Network service not initialized'
+      };
+    }
+    
+    const networkService = walletServices.networkService;
+    const coordinatorStatus = networkService.getCoordinatorStatus();
+    
+    return {
+      success: true,
+      status: coordinatorStatus
+    };
+  } catch (error) {
+    console.error('Error getting network coordinator status:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-guided-bootstrap-stats', async () => {
+  try {
+    if (!walletServices) {
+      return {
+        success: false,
+        error: 'Wallet services not initialized'
+      };
+    }
+    
+    const stats = serviceIntegrationManager.getBootstrapStats();
+    
+    return {
+      success: true,
+      stats: stats
+    };
+  } catch (error) {
+    console.error('Error getting guided bootstrap stats:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('refresh-network-map', async () => {
+  try {
+    if (!walletServices || !walletServices.networkService) {
+      return {
+        success: false,
+        error: 'Network service not initialized'
+      };
+    }
+    
+    const networkService = walletServices.networkService;
+    const networkMap = await networkService.refreshNetworkMap();
+    
+    return {
+      success: !!networkMap,
+      networkMap: networkMap,
+      message: networkMap ? 'Network map refreshed successfully' : 'Failed to refresh network map'
+    };
+  } catch (error) {
+    console.error('Error refreshing network map:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('initialize-pioneer-mode-bootstrap', async (event, walletAddress, modelPath) => {
+  try {
+    if (!walletServices || !walletServices.bootstrapService) {
+      return {
+        success: false,
+        error: 'Bootstrap service not initialized'
+      };
+    }
+    
+    const bootstrapService = walletServices.bootstrapService;
+    
+    // Initialize pioneer mode
+    await bootstrapService.initializePioneerMode();
+    
+    // Set wallet address if provided
+    if (walletAddress) {
+      bootstrapService.onWalletAddressCreated(walletAddress);
+    }
+    
+    // Set mining readiness if model is provided
+    if (modelPath) {
+      bootstrapService.onMiningReadiness(modelPath, {
+        name: 'Selected Model',
+        path: modelPath
+      });
+    }
+    
+    return {
+      success: true,
+      message: 'Pioneer mode bootstrap initialized successfully',
+      state: bootstrapService.getState()
+    };
+  } catch (error) {
+    console.error('Error initializing pioneer mode bootstrap:', error);
+    return {
+      success: false,
+      error: error.message
     };
   }
 });
