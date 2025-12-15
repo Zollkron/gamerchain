@@ -266,3 +266,9 @@ data/*_keys.json
 *.key 
 *.p12 
 *.pfx 
+ 
+# Security: Block IP addresses 
+*public*.bat 
+*port-forwarding*.bat 
+verify-*.bat 
+ 
