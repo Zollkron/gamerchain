@@ -22,6 +22,8 @@ from typing import List
 from pathlib import Path
 from datetime import datetime
 import json
+import requests
+import time
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,20 +45,29 @@ logger = logging.getLogger(__name__)
 
 class MultiNodeNetworkNode:
     """
-    Complete multi-node network node implementation
+    Complete multi-node network node implementation with Network Coordinator integration
     """
     
     def __init__(self, node_id: str, port: int = None, network_type: str = "testnet", bootstrap_nodes: List[str] = None):
         self.node_id = node_id
         self.network_type = network_type
         self.port = port or (18080 if network_type == "testnet" else 18081)
+        self.coordinator_url = "https://playergold.es/api/v1"
+        
+        # Wallet User-Agent to access coordinator
+        self.headers = {
+            'User-Agent': 'PlayerGold-Wallet/2.0.0 (Electron)',
+            'Content-Type': 'application/json'
+        }
         
         # Initialize components
         self.network_manager = NetworkManager()
         self.network_manager.set_current_network(NetworkType.TESTNET if network_type == "testnet" else NetworkType.MAINNET)
         
-        # Add bootstrap nodes if provided
+        # We'll do coordinator discovery during startup, not in init
+        # Add manual bootstrap nodes if provided
         if bootstrap_nodes:
+            logger.info(f"Adding {len(bootstrap_nodes)} manual bootstrap nodes")
             for node_address in bootstrap_nodes:
                 self.network_manager.add_bootstrap_node(node_address)
         
@@ -91,6 +102,237 @@ class MultiNodeNetworkNode:
         logger.info(f"Network: {network_type}")
         logger.info(f"P2P Port: {self.port}")
         logger.info(f"API Port: {self.api_port}")
+    
+    def autodiscover_and_register(self) -> bool:
+        """Autodiscover this node and register with coordinator if needed"""
+        try:
+            logger.info("🔍 Starting autodiscovery process...")
+            
+            # Get our public IP first
+            logger.info("🌐 Getting public IP...")
+            public_ip_response = requests.get("https://api.ipify.org", timeout=5, headers=self.headers)
+            if public_ip_response.status_code != 200:
+                logger.error("❌ Could not get public IP")
+                return False
+            
+            public_ip = public_ip_response.text.strip()
+            logger.info(f"📍 Public IP: {public_ip}")
+            
+            # Check if we're already registered
+            logger.info("🔍 Checking if already registered with coordinator...")
+            try:
+                # Use network-map endpoint with location data
+                map_request_data = {
+                    "requester_latitude": 40.4168,  # Default location (Madrid)
+                    "requester_longitude": -3.7038,
+                    "max_distance_km": 10000,  # Global search
+                    "limit": 100
+                }
+                check_response = requests.post(f"{self.coordinator_url}/network-map", 
+                                             json=map_request_data, 
+                                             timeout=10, 
+                                             headers=self.headers)
+                if check_response.status_code == 200:
+                    response_data = check_response.json()
+                    
+                    # Look for ourselves in the network map
+                    already_registered = False
+                    if response_data.get('status') == 'success' and 'map' in response_data:
+                        net_map = response_data['map']
+                        if 'nodes' in net_map:
+                            for node in net_map['nodes']:
+                                if (node.get('node_id') == self.node_id or 
+                                    (node.get('ip') == public_ip and node.get('port') == self.port)):
+                                    already_registered = True
+                                    logger.info(f"✅ Already registered: {node.get('node_id', 'unknown')}")
+                                    break
+                    
+                    if not already_registered:
+                        logger.info("📝 Not registered yet, registering now...")
+                        return self.register_with_coordinator(public_ip)
+                    else:
+                        logger.info("✅ Already registered with coordinator")
+                        return True
+                        
+            except Exception as e:
+                logger.warning(f"⚠️ Could not check registration status: {e}")
+                logger.info("📝 Attempting registration anyway...")
+                return self.register_with_coordinator(public_ip)
+                
+        except Exception as e:
+            logger.error(f"❌ Autodiscovery failed: {e}")
+            return False
+        
+        return True
+
+    def get_coordinator_nodes(self) -> List[str]:
+        """Get active nodes from Network Coordinator and find best connections"""
+        try:
+            logger.info("🗺️ Requesting network map from coordinator...")
+            
+            # Get network map from coordinator
+            map_request_data = {
+                "requester_latitude": 40.4168,  # Default location (Madrid)
+                "requester_longitude": -3.7038,
+                "max_distance_km": 10000,  # Global search
+                "limit": 100
+            }
+            response = requests.post(f"{self.coordinator_url}/network-map", 
+                                   json=map_request_data, 
+                                   timeout=10, 
+                                   headers=self.headers)
+            if response.status_code == 200:
+                response_data = response.json()
+                
+                if response_data.get('status') == 'success' and 'map' in response_data:
+                    net_map = response_data['map']
+                    logger.info(f"📊 Network map received - Total nodes: {net_map.get('total_nodes', 0)}, Active: {net_map.get('active_nodes', 0)}")
+                    
+                    # Extract active nodes (excluding ourselves)
+                    active_nodes = []
+                    our_public_ip = self.get_public_ip()
+                    
+                    if 'nodes' in net_map:
+                        for node in net_map['nodes']:
+                            if (node.get('status') == 'active' and 
+                                'ip' in node and 'port' in node):
+                                
+                                # Skip ourselves (same node_id or same IP+port)
+                                if (node.get('node_id') == self.node_id or 
+                                    (node.get('ip') == our_public_ip and node.get('port') == self.port)):
+                                    logger.info(f"  🔄 Skipping self: {node.get('node_id', 'unknown')} at {node.get('ip')}:{node.get('port')}")
+                                    continue
+                                
+                                node_address = f"{node['ip']}:{node['port']}"
+                                node_info = {
+                                    'address': node_address,
+                                    'node_id': node.get('node_id', 'unknown'),
+                                    'node_type': node.get('node_type', 'unknown'),
+                                    'last_seen': node.get('last_seen', 'unknown')
+                                }
+                                active_nodes.append(node_info)
+                                logger.info(f"  📡 Found peer node: {node_address} ({node_info['node_id']}) - {node_info['node_type']}")
+                
+                    if active_nodes:
+                        logger.info(f"✅ Found {len(active_nodes)} potential peer nodes")
+                        
+                        # Prioritize genesis/pioneer nodes
+                        genesis_nodes = [n for n in active_nodes if 'genesis' in n['node_type'] or 'pioneer' in n['node_type']]
+                        other_nodes = [n for n in active_nodes if n not in genesis_nodes]
+                        
+                        # Return addresses in priority order
+                        prioritized_addresses = []
+                        if genesis_nodes:
+                            logger.info(f"🎯 Prioritizing {len(genesis_nodes)} genesis/pioneer nodes")
+                            prioritized_addresses.extend([n['address'] for n in genesis_nodes])
+                        
+                        if other_nodes:
+                            logger.info(f"📋 Adding {len(other_nodes)} other active nodes")
+                            prioritized_addresses.extend([n['address'] for n in other_nodes])
+                        
+                        return prioritized_addresses
+                    else:
+                        logger.info("📭 No other active nodes found in coordinator")
+                else:
+                    logger.warning("⚠️ Invalid network map response format")
+                    
+            else:
+                logger.warning(f"⚠️ Coordinator responded with status {response.status_code}")
+                
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"⚠️ Could not connect to coordinator: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Error getting coordinator nodes: {e}")
+        
+        return []
+    
+    def get_public_ip(self) -> str:
+        """Get our public IP address"""
+        try:
+            response = requests.get("https://api.ipify.org", timeout=5, headers=self.headers)
+            if response.status_code == 200:
+                return response.text.strip()
+        except:
+            pass
+        return None
+    
+    def register_with_coordinator(self, public_ip: str) -> bool:
+        """Register this node with the Network Coordinator"""
+        try:
+            logger.info(f"📝 Registering node {self.node_id} with coordinator...")
+            
+            # Register with coordinator
+            registration_data = {
+                "node_id": self.node_id,
+                "public_ip": public_ip,
+                "port": self.port,
+                "latitude": 40.4168,  # Default location (Madrid)
+                "longitude": -3.7038,
+                "os_info": "Python MultiNode",
+                "node_type": "genesis",
+                "public_key": "placeholder_key",  # Placeholder for now
+                "signature": "placeholder_signature"  # Placeholder for now
+            }
+            
+            response = requests.post(
+                f"{self.coordinator_url}/register",
+                json=registration_data,
+                timeout=10,
+                headers=self.headers
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"✅ Successfully registered: {public_ip}:{self.port}")
+                return True
+            else:
+                logger.warning(f"⚠️ Registration failed with status {response.status_code}")
+                if response.text:
+                    logger.warning(f"   Response: {response.text}")
+                    
+        except Exception as e:
+            logger.warning(f"⚠️ Registration error: {e}")
+        
+        return False
+    
+    async def monitor_coordinator_nodes(self):
+        """Periodically check coordinator for new nodes"""
+        check_interval = 15  # Start with 15 seconds
+        max_interval = 60    # Max 60 seconds
+        
+        while self.running and not self.bootstrap_manager.genesis_created:
+            try:
+                logger.info(f"🔍 Checking coordinator for new peer nodes...")
+                new_nodes = self.get_coordinator_nodes()
+                
+                if new_nodes:
+                    logger.info(f"🎯 Found {len(new_nodes)} potential peer nodes")
+                    # Add any new nodes we haven't seen
+                    for node_address in new_nodes:
+                        if not self.network_manager.has_bootstrap_node(node_address):
+                            logger.info(f"🆕 Adding new coordinator node: {node_address}")
+                            self.network_manager.add_bootstrap_node(node_address)
+                            
+                            # Try to connect immediately
+                            try:
+                                logger.info(f"🔗 Attempting connection to {node_address}...")
+                                await self.p2p_network.connect_to_peer(node_address)
+                                logger.info(f"✅ Connected to {node_address}")
+                            except Exception as e:
+                                logger.info(f"⚠️ Could not connect to {node_address}: {e}")
+                    
+                    # Reset interval when we find nodes
+                    check_interval = 15
+                else:
+                    logger.info("📭 No new peer nodes found, continuing to monitor...")
+                    # Gradually increase interval
+                    check_interval = min(check_interval + 5, max_interval)
+                
+                logger.info(f"⏰ Next coordinator check in {check_interval} seconds...")
+                await asyncio.sleep(check_interval)
+                
+            except Exception as e:
+                logger.warning(f"Error monitoring coordinator: {e}")
+                await asyncio.sleep(30)  # Wait on error
     
     def create_api_app(self):
         """Create Flask API application"""
@@ -247,6 +489,23 @@ class MultiNodeNetworkNode:
             
             self.running = True
             
+            # Step 1: Autodiscover and register with coordinator
+            logger.info("🔍 Phase 1: Autodiscovery and Registration")
+            if self.autodiscover_and_register():
+                logger.info("✅ Autodiscovery completed successfully")
+                
+                # Step 2: Get peer nodes from coordinator
+                logger.info("🗺️ Phase 2: Peer Discovery")
+                coordinator_nodes = self.get_coordinator_nodes()
+                if coordinator_nodes:
+                    logger.info(f"📡 Adding {len(coordinator_nodes)} coordinator nodes to bootstrap list")
+                    for node_address in coordinator_nodes:
+                        self.network_manager.add_bootstrap_node(node_address)
+                else:
+                    logger.info("📭 No peer nodes found, will operate in standalone mode initially")
+            else:
+                logger.warning("⚠️ Autodiscovery failed, continuing with manual bootstrap nodes only")
+            
             # Start P2P network
             logger.info("📡 Starting P2P network...")
             await self.p2p_network.start()
@@ -322,10 +581,16 @@ class MultiNodeNetworkNode:
             logger.info(f"📊 Network status: http://127.0.0.1:{self.api_port}/api/v1/network/status")
             logger.info(f"💊 Health check: http://127.0.0.1:{self.api_port}/api/v1/health")
             
+            # Coordinator registration was already done in autodiscovery phase
+            
             # Wait for genesis or continue operation
             if not self.bootstrap_manager.genesis_created:
                 logger.info("⏳ Waiting for genesis block creation...")
                 logger.info("   Need exactly 2 pioneer AI nodes to create genesis block")
+                logger.info("   Checking coordinator for other pioneer nodes...")
+                
+                # Periodically check for other nodes
+                asyncio.create_task(self.monitor_coordinator_nodes())
             else:
                 logger.info("✅ Genesis block already exists, operating normally")
             
