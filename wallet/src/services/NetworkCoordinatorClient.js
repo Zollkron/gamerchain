@@ -373,9 +373,22 @@ class NetworkCoordinatorClient {
                 return response.data;
                 
             } catch (error) {
-                console.warn(`⚠️ Request to ${url} failed:`, error.message);
+                // Handle specific HTTP status codes
+                if (error.response) {
+                    const status = error.response.status;
+                    if (status === 403) {
+                        console.warn(`🚫 Access forbidden (403) to ${url}${endpoint}`);
+                        console.warn('🔧 This is normal during development - coordinator may be restricting access');
+                    } else if (status === 404) {
+                        console.warn(`❌ Endpoint not found (404) at ${url}${endpoint}`);
+                    } else {
+                        console.warn(`⚠️ HTTP ${status} error from ${url}:`, error.message);
+                    }
+                } else {
+                    console.warn(`⚠️ Request to ${url} failed:`, error.message);
+                }
                 
-                // Try with native https module as fallback
+                // Try with native https module as fallback for connection errors
                 if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
                     try {
                         console.log(`🔄 Trying native HTTPS for ${url}...`);
@@ -387,7 +400,10 @@ class NetworkCoordinatorClient {
                 }
                 
                 if (url === urls[urls.length - 1]) {
-                    // Last URL, re-throw error
+                    // Last URL, re-throw error with more context
+                    if (error.response && error.response.status === 403) {
+                        throw new Error(`403 Forbidden: Coordinator is blocking requests. This is normal during development.`);
+                    }
                     throw error;
                 }
             }
