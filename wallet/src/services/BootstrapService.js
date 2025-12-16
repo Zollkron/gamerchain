@@ -519,28 +519,80 @@ class BootstrapService extends EventEmitter {
   }
 
   /**
-   * Submit genesis block to external blockchain
+   * Submit genesis block to blockchain
    */
   async submitGenesisBlock(block) {
     try {
       this.logger.info('📤 Submitting genesis block to blockchain...');
       
-      // For remote gamers scenario, we don't submit to local blockchain
-      // Instead, we mark the genesis block as created and ready for network formation
-      this.logger.info('✅ Genesis block created for remote network formation');
+      // Save genesis block to local storage
+      await this.saveGenesisBlockLocally(block);
       
       // Mark bootstrap as completed
       this.setState({
-        isReady: true
+        isReady: true,
+        genesisBlock: block
+      });
+      
+      // Debug: Verify state was updated
+      const currentState = this.getState();
+      this.logger.info('🔍 Bootstrap state after genesis creation:', {
+        hasGenesisBlock: !!currentState.genesisBlock,
+        genesisHash: currentState.genesisBlock?.hash,
+        isReady: currentState.isReady
       });
       
       this.emit('bootstrapCompleted', {
         genesisBlock: block,
-        result: { status: 'success', message: 'Genesis block created for remote network' }
+        result: { status: 'success', message: 'Genesis block created and saved locally' }
       });
+      
+      // Emit genesis block created event for other services
+      this.emit('genesisBlockCreated', block);
+      
+      this.logger.info('✅ Genesis block submitted and saved successfully');
       
     } catch (error) {
       this.logger.error('❌ Error submitting genesis block:', error);
+    }
+  }
+
+  /**
+   * Save genesis block to local storage
+   */
+  async saveGenesisBlockLocally(block) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Ensure data directory exists
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      // Save genesis block
+      const genesisPath = path.join(dataDir, 'genesis_block.json');
+      fs.writeFileSync(genesisPath, JSON.stringify(block, null, 2));
+      
+      this.logger.info(`💾 Genesis block saved to: ${genesisPath}`);
+      
+      // Also save to blockchain data
+      const blockchainPath = path.join(dataDir, 'blockchain.json');
+      const blockchain = {
+        blocks: [block],
+        height: 1,
+        lastBlockHash: block.hash,
+        genesisHash: block.hash,
+        createdAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(blockchainPath, JSON.stringify(blockchain, null, 2));
+      this.logger.info(`💾 Blockchain initialized with genesis block`);
+      
+    } catch (error) {
+      this.logger.error('❌ Error saving genesis block locally:', error);
+      throw error;
     }
   }
 
@@ -584,13 +636,26 @@ class BootstrapService extends EventEmitter {
         genesis_nodes: networkData.genesis_nodes
       });
       
+      // Debug: Log all nodes
+      if (networkData.nodes) {
+        this.logger.info(`🔍 All nodes in network map: ${networkData.nodes.length}`);
+        networkData.nodes.forEach((node, index) => {
+          this.logger.info(`  Node ${index + 1}: ${node.node_id} - ${node.status} - ${node.ip}:${node.port}`);
+        });
+      }
+      
+      const ownNodeId = this.getOwnNodeId();
+      this.logger.info(`🔍 Own node ID: ${ownNodeId}`);
+      
       // Filter for active nodes that are not this node
       const remotePeers = networkData.nodes?.filter(node => {
-        // Exclude this node (if we can identify it)
-        return node.status === 'ACTIVE' && 
-               node.public_ip && 
-               node.public_ip !== 'unknown' &&
-               node.node_id !== this.getOwnNodeId();
+        const isActive = node.status === 'active';
+        const hasIp = node.ip && node.ip !== 'unknown';
+        const isNotSelf = node.node_id !== ownNodeId;
+        
+        this.logger.info(`🔍 Evaluating node ${node.node_id}: active=${isActive}, hasIp=${hasIp}, notSelf=${isNotSelf}`);
+        
+        return isActive && hasIp && isNotSelf;
       }) || [];
       
       this.logger.info(`🌐 Found ${remotePeers.length} potential remote peers`);
