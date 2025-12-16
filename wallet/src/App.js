@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import SyncProgress from './components/SyncProgress';
 import BootstrapStatus from './components/BootstrapStatus';
 import NetworkValidationStatus from './components/NetworkValidationStatus';
+import DeveloperTools from './components/DeveloperTools';
 
 function App() {
   const [wallets, setWallets] = useState([]);
@@ -160,16 +161,37 @@ function App() {
   const loadWallets = async () => {
     try {
       setIsLoading(true);
+      
+      // Check if this is the first run
+      let isFirstRun = false;
+      if (window.electronAPI && window.electronAPI.isFirstRun) {
+        try {
+          const firstRunResult = await window.electronAPI.isFirstRun();
+          isFirstRun = firstRunResult.success ? firstRunResult.isFirstRun : false;
+          console.log(`🔍 First run check: ${isFirstRun}`);
+        } catch (error) {
+          console.warn('Could not check first run status:', error);
+        }
+      }
+      
       if (window.electronAPI) {
         const result = await window.electronAPI.getWallets();
         if (result.success) {
           setWallets(result.wallets);
           if (result.wallets.length > 0) {
             setCurrentWallet(result.wallets[0]);
+            
+            // If we have wallets but this is marked as first run, log it
+            if (isFirstRun) {
+              console.log('⚠️ First run flag set but wallets exist - this may indicate persistent data');
+            }
+          } else {
+            console.log('✨ No wallets found - showing setup screen');
           }
         }
       } else {
-        // Fallback for development/testing
+        // Fallback for development/testing - but don't use localStorage in production builds
+        console.warn('⚠️ ElectronAPI not available - using fallback (development only)');
         const savedWallets = localStorage.getItem('playerGoldWallets');
         if (savedWallets) {
           const parsedWallets = JSON.parse(savedWallets);
@@ -340,6 +362,12 @@ function App() {
           onBootstrapComplete={handleBootstrapComplete}
         />
       )}
+      
+      {/* Developer Tools (only in development) */}
+      <DeveloperTools onDataCleared={() => {
+        setWallets([]);
+        setCurrentWallet(null);
+      }} />
     </div>
   );
 }

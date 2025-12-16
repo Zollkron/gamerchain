@@ -1265,6 +1265,58 @@ ipcMain.handle('refresh-network-map', async () => {
   }
 });
 
+// Clear wallet data handler (for development/testing)
+ipcMain.handle('clear-wallet-data', async () => {
+  try {
+    if (!walletServices || !walletServices.walletService) {
+      return {
+        success: false,
+        error: 'Wallet service not initialized'
+      };
+    }
+    
+    const result = await walletServices.walletService.clearAllData();
+    
+    if (result.success) {
+      console.log('✅ Wallet data cleared successfully');
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error clearing wallet data:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Check if first run
+ipcMain.handle('is-first-run', async () => {
+  try {
+    if (!walletServices || !walletServices.walletService) {
+      // If services aren't initialized yet, assume first run
+      return {
+        success: true,
+        isFirstRun: true
+      };
+    }
+    
+    const isFirstRun = walletServices.walletService.isFirstRun();
+    
+    return {
+      success: true,
+      isFirstRun: isFirstRun
+    };
+  } catch (error) {
+    console.error('Error checking first run:', error);
+    return {
+      success: true,
+      isFirstRun: true // Default to first run on error
+    };
+  }
+});
+
 ipcMain.handle('initialize-pioneer-mode-bootstrap', async (event, walletAddress, modelPath) => {
   try {
     if (!walletServices || !walletServices.bootstrapService) {

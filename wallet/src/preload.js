@@ -128,6 +128,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('bootstrap-state-loaded', wrappedCallback);
   },
   
+  // Data management operations
+  clearWalletData: () => ipcRenderer.invoke('clear-wallet-data'),
+  isFirstRun: () => ipcRenderer.invoke('is-first-run'),
+  
   // Generic invoke method for flexibility
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
   

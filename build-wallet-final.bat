@@ -49,6 +49,17 @@ if not exist "package.json" (
     exit /b 1
 )
 echo ✓ En directorio wallet
+
+REM Verificar que package.json incluye los scripts
+echo Verificando configuración de build...
+findstr /C:"../scripts" package.json >nul
+if errorlevel 1 (
+    echo ⚠️  Configuración de scripts no encontrada en package.json
+    echo    La wallet podría no incluir los scripts de backend necesarios
+    echo    Continuando con el build...
+) else (
+    echo ✓ Configuración de scripts verificada
+)
 echo.
 
 REM Limpiar builds anteriores
@@ -56,6 +67,12 @@ echo Limpiando builds anteriores...
 if exist "build" rmdir /s /q "build" 2>nul
 if exist "dist" rmdir /s /q "dist" 2>nul
 echo ✓ Limpieza completada
+
+REM Limpiar datos de desarrollo que podrían persistir
+echo Limpiando datos de desarrollo...
+if exist "src\data" rmdir /s /q "src\data" 2>nul
+if exist "src\temp" rmdir /s /q "src\temp" 2>nul
+echo ✓ Datos de desarrollo limpiados
 echo.
 
 REM Instalar dependencias
@@ -151,6 +168,12 @@ if %PORTABLE_OK%==1 (
     if %INSTALLER_OK%==1 echo • Instalador: %INSTALLER_EXE%
     echo.
     echo Para probar: ejecuta el archivo portable
+    echo.
+    echo 🧹 PARA INSTALACIÓN COMPLETAMENTE LIMPIA:
+    echo    Si la wallet muestra wallets preexistentes en un equipo nuevo:
+    echo    1. Ejecutar: clean-wallet-data.bat
+    echo    2. Reconstruir: build-wallet-final.bat
+    echo    3. La wallet mostrará la pantalla de crear/importar wallet
 ) else (
     echo ========================================
     echo ❌ BUILD FALLÓ

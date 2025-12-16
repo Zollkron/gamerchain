@@ -41,6 +41,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "../scripts",
+        "to": "scripts",
+        "filter": [
+          "**/*.py"
+        ]
       }
     ],
     "extraMetadata": {

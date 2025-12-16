@@ -18,6 +18,77 @@ class WalletService {
     // Initialize GenesisStateManager
     this.genesisStateManager = new GenesisStateManager();
     this.genesisStateManager.initialize(NetworkService);
+    
+    // Check if this is a fresh installation
+    this.checkFreshInstallation();
+  }
+
+  /**
+   * Check if this is a fresh installation and handle accordingly
+   */
+  checkFreshInstallation() {
+    try {
+      // Check if we have a flag indicating this is a development/test build
+      const isDevelopmentBuild = process.env.NODE_ENV === 'development' || 
+                                process.env.CLEAN_INSTALL === 'true';
+      
+      // If this is a development build, we might want to start fresh
+      if (isDevelopmentBuild) {
+        console.log('🔧 Development build detected - wallet data preserved but can be reset manually');
+      }
+      
+      // Log current wallet count for debugging
+      const existingWallets = this.store.get('wallets', []);
+      console.log(`📊 Found ${existingWallets.length} existing wallets in storage`);
+      
+      // If no wallets exist, this is effectively a fresh start
+      if (existingWallets.length === 0) {
+        console.log('✨ Fresh installation detected - no existing wallets found');
+        this.store.set('first_run', true);
+      } else {
+        console.log('🔄 Existing installation detected - wallets found');
+        this.store.set('first_run', false);
+      }
+      
+    } catch (error) {
+      console.error('Error checking fresh installation:', error);
+    }
+  }
+
+  /**
+   * Clear all wallet data (for testing/development)
+   * WARNING: This will delete all wallets permanently
+   */
+  async clearAllData() {
+    try {
+      console.warn('⚠️ Clearing all wallet data - this cannot be undone!');
+      
+      // Clear all stored data
+      this.store.clear();
+      
+      // Reset first run flag
+      this.store.set('first_run', true);
+      
+      console.log('✅ All wallet data cleared successfully');
+      
+      return {
+        success: true,
+        message: 'All wallet data cleared'
+      };
+    } catch (error) {
+      console.error('Error clearing wallet data:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Check if this is the first run
+   */
+  isFirstRun() {
+    return this.store.get('first_run', true);
   }
 
   /**
