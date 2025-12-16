@@ -241,8 +241,11 @@ const Dashboard = ({ wallet, wallets, onWalletChange, onWalletsUpdate }) => {
     if (!window.electronAPI) return;
 
     const handleMiningStatusChange = (status) => {
-      console.log('Mining status change:', status);
-      loadMiningData(); // Refresh mining data
+      // Only log if status is valid
+      if (status && typeof status === 'object' && Object.keys(status).length > 0) {
+        console.log('Mining status change:', status);
+        loadMiningData(); // Refresh mining data
+      }
     };
 
     const handleModelDownloadProgress = (progress) => {

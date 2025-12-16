@@ -20,6 +20,12 @@ const BlockchainNodeStatus = () => {
     const handleStatusChange = (event, status) => {
       console.log('Blockchain node status change:', status);
       
+      // Check if status is valid
+      if (!status || typeof status !== 'object') {
+        console.warn('Invalid status received:', status);
+        return;
+      }
+      
       switch (status.event) {
         case 'node_started':
           setNodeStatus(prev => ({
@@ -52,6 +58,10 @@ const BlockchainNodeStatus = () => {
           
         case 'node_error':
           setError(status.error);
+          break;
+          
+        default:
+          console.log('Unknown blockchain node event:', status.event);
           break;
       }
     };

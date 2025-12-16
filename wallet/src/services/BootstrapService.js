@@ -380,39 +380,59 @@ class BootstrapService extends EventEmitter {
         this.logger.debug('External blockchain network not available, trying peer discovery...');
       }
       
-      // Fallback to peer discovery scan
-      this.logger.info('🔍 Scanning for peers in the network...');
-      const discoveredPeers = await this.peerDiscoveryManager.scanForPeers();
+      // Use Network Coordinator for remote peer discovery
+      this.logger.info('🌐 Using Network Coordinator for remote peer discovery...');
+      const remotePeers = await this.discoverRemotePeers();
       
-      this.logger.info(`📡 Found ${discoveredPeers.length} peers in the network`);
+      this.logger.info(`📡 Found ${remotePeers.length} remote peers via Network Coordinator`);
       
-      if (discoveredPeers.length > 0) {
-        this.logger.info('🤝 Attempting to establish connections with discovered peers...');
+      if (remotePeers.length > 0) {
+        this.logger.info('🤝 Attempting to establish connections with remote peers...');
         
-        // Try to connect to discovered peers
-        for (const peer of discoveredPeers) {
+        let connectedPeers = 0;
+        for (const peer of remotePeers) {
           try {
-            await this.peerDiscoveryManager.establishConnection(peer);
-            this.logger.info(`✅ Connected to peer: ${peer.id} at ${peer.address}:${peer.port}`);
+            const connected = await this.connectToRemotePeer(peer);
+            if (connected) {
+              connectedPeers++;
+              this.logger.info(`✅ Connected to remote peer: ${peer.node_id} at ${peer.public_ip}`);
+            }
           } catch (error) {
-            this.logger.warn(`❌ Failed to connect to peer ${peer.id}: ${error.message}`);
+            this.logger.warn(`❌ Failed to connect to remote peer ${peer.node_id}: ${error.message}`);
           }
         }
         
         // Check if we have enough peers for network formation
-        const activeConnections = this.peerDiscoveryManager.getActiveConnections();
-        if (activeConnections.length >= 1) {
-          this.logger.info('🎉 Network formation conditions met - ready for consensus!');
+        if (connectedPeers >= 1) {
+          this.logger.info('🎉 Network formation conditions met with remote peers - ready for consensus!');
           this.emit('networkFormationReady', {
-            peerCount: activeConnections.length,
-            peers: discoveredPeers
+            peerCount: connectedPeers + 1, // +1 for this node
+            peers: remotePeers
           });
+        } else {
+          this.logger.info('🔄 No successful connections - will retry discovery in 30 seconds...');
+          setTimeout(() => {
+            this.startAutomaticPeerDiscovery();
+          }, 30000);
         }
       } else {
-        this.logger.info('🔄 No peers found - will retry discovery in 30 seconds...');
-        setTimeout(() => {
-          this.startAutomaticPeerDiscovery();
-        }, 30000);
+        // Fallback to local peer discovery scan
+        this.logger.info('🔍 No remote peers found, trying local peer discovery...');
+        const localPeers = await this.peerDiscoveryManager.scanForPeers();
+        
+        if (localPeers.length > 0) {
+          this.logger.info(`📡 Found ${localPeers.length} local peers`);
+          // Handle local peers...
+          this.emit('networkFormationReady', {
+            peerCount: localPeers.length + 1,
+            peers: localPeers
+          });
+        } else {
+          this.logger.info('🔄 No peers found locally or remotely - will retry discovery in 30 seconds...');
+          setTimeout(() => {
+            this.startAutomaticPeerDiscovery();
+          }, 30000);
+        }
       }
       
     } catch (error) {
@@ -569,6 +589,115 @@ class BootstrapService extends EventEmitter {
     } catch (error) {
       this.logger.error('❌ Error submitting genesis block:', error);
     }
+  }
+
+  /**
+   * Discover remote peers using Network Coordinator
+   */
+  async discoverRemotePeers() {
+    try {
+      this.logger.info('🔍 Querying Network Coordinator for remote peers...');
+      
+      // Prepare network map request with default coordinates
+      const mapRequest = {
+        requester_latitude: 40.7128,  // Default to NYC coordinates
+        requester_longitude: -74.0060,
+        max_distance_km: 20000,       // Global search
+        limit: 50
+      };
+      
+      const response = await fetch('https://playergold.es/api/v1/network-map', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'PlayerGold-Wallet/1.0.0'
+        },
+        body: JSON.stringify(mapRequest)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Network Coordinator responded with ${response.status}`);
+      }
+      
+      const networkMap = await response.json();
+      this.logger.info('📊 Network map received:', networkMap);
+      
+      // Filter for active nodes that are not this node
+      const remotePeers = networkMap.active_nodes?.filter(node => {
+        // Exclude this node (if we can identify it)
+        return node.status === 'active' && 
+               node.public_ip && 
+               node.public_ip !== 'unknown' &&
+               node.node_id !== this.getOwnNodeId();
+      }) || [];
+      
+      this.logger.info(`🌐 Found ${remotePeers.length} potential remote peers`);
+      return remotePeers;
+      
+    } catch (error) {
+      this.logger.error('❌ Error discovering remote peers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Connect to a remote peer
+   */
+  async connectToRemotePeer(peer) {
+    try {
+      this.logger.info(`🔗 Attempting to connect to remote peer: ${peer.node_id} at ${peer.public_ip}`);
+      
+      // Try to establish connection via HTTP first (for handshake)
+      const handshakeUrl = `http://${peer.public_ip}:19080/api/v1/network/status`;
+      
+      const response = await fetch(handshakeUrl, {
+        method: 'GET',
+        timeout: 10000 // 10 second timeout
+      });
+      
+      if (response.ok) {
+        const peerStatus = await response.json();
+        this.logger.info(`✅ Handshake successful with peer ${peer.node_id}:`, peerStatus);
+        
+        // Store peer connection info
+        this.state.discoveredPeers.push({
+          id: peer.node_id,
+          address: peer.public_ip,
+          port: 19080,
+          walletAddress: peerStatus.wallet_address || 'unknown',
+          networkMode: 'testnet',
+          isReady: true,
+          capabilities: ['genesis-creation', 'mining', 'consensus'],
+          lastSeen: Date.now()
+        });
+        
+        return true;
+      } else {
+        this.logger.warn(`⚠️ Handshake failed with peer ${peer.node_id}: HTTP ${response.status}`);
+        return false;
+      }
+      
+    } catch (error) {
+      this.logger.warn(`❌ Connection failed to peer ${peer.node_id}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Get own node ID for filtering
+   */
+  getOwnNodeId() {
+    // Try to get from various sources
+    if (this.state.nodeId) {
+      return this.state.nodeId;
+    }
+    
+    // Generate a consistent node ID based on wallet address
+    if (this.state.walletAddress) {
+      return `wallet_${this.state.walletAddress.slice(-8)}`;
+    }
+    
+    return null;
   }
 
   /**

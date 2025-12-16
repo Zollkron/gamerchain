@@ -807,7 +807,10 @@ ipcMain.handle('start-mining', async (event, modelId, walletAddress) => {
     
     // Set up status change listener
     const unsubscribe = MiningService.onStatusChange((status) => {
-      event.sender.send('mining-status-change', status);
+      // Only send valid status updates
+      if (status && typeof status === 'object' && Object.keys(status).length > 0) {
+        event.sender.send('mining-status-change', status);
+      }
     });
     
     // Store unsubscribe function for cleanup
@@ -907,7 +910,10 @@ ipcMain.handle('start-blockchain-node', async (event) => {
     
     // Set up status change listener
     const unsubscribe = BlockchainNodeService.onStatusChange((status) => {
-      event.sender.send('blockchain-node-status-change', status);
+      // Only send valid status updates
+      if (status && typeof status === 'object' && Object.keys(status).length > 0) {
+        event.sender.send('blockchain-node-status-change', status);
+      }
     });
     
     // Store unsubscribe function for cleanup

@@ -103,7 +103,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Blockchain node event listeners
   onBlockchainNodeStatusChange: (callback) => {
-    const wrappedCallback = (event, status) => callback(status);
+    const wrappedCallback = (event, status) => {
+      // Only call callback with valid status
+      if (status && typeof status === 'object' && Object.keys(status).length > 0) {
+        callback(status);
+      }
+    };
     ipcRenderer.on('blockchain-node-status-change', wrappedCallback);
     return () => ipcRenderer.removeListener('blockchain-node-status-change', wrappedCallback);
   },
