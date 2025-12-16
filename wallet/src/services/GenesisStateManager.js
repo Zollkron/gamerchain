@@ -78,6 +78,51 @@ class GenesisStateManager extends EventEmitter {
   }
 
   /**
+   * Check for local genesis block file
+   * @returns {Promise<GenesisState|null>} Genesis state if found locally, null otherwise
+   */
+  async checkLocalGenesisBlock() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Check multiple possible locations for genesis block
+      const possiblePaths = [
+        path.join(process.cwd(), 'data', 'genesis_block.json'),
+        path.join(__dirname, '../../../data/genesis_block.json'),
+        path.join(process.resourcesPath || process.cwd(), 'data', 'genesis_block.json')
+      ];
+      
+      for (const genesisPath of possiblePaths) {
+        if (fs.existsSync(genesisPath)) {
+          try {
+            const genesisData = JSON.parse(fs.readFileSync(genesisPath, 'utf8'));
+            
+            if (genesisData.index === 0 && genesisData.hash) {
+              console.log(`✅ Local genesis block found at: ${genesisPath}`);
+              
+              return new GenesisState(
+                true,
+                genesisData.hash,
+                new Date(genesisData.timestamp),
+                true
+              );
+            }
+          } catch (parseError) {
+            console.warn(`⚠️ Invalid genesis block at ${genesisPath}:`, parseError.message);
+          }
+        }
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error('❌ Error checking local genesis block:', error);
+      return null;
+    }
+  }
+
+  /**
    * Initialize the genesis state manager with required services
    * @param {Object} networkService - NetworkService instance
    * @param {Object} bootstrapService - BootstrapService instance (optional)
@@ -135,7 +180,24 @@ class GenesisStateManager extends EventEmitter {
     try {
       console.log('Checking genesis block existence...');
       
-      // If we're in bootstrap mode, check bootstrap service first
+      // First, check for local genesis block file
+      const localGenesis = await this.checkLocalGenesisBlock();
+      if (localGenesis) {
+        this.genesisState = localGenesis;
+        console.log(`✅ Genesis block found locally: ${this.genesisState.blockHash}`);
+        
+        // If we have a local genesis block and we're not in bootstrap mode, activate the network
+        if (this.currentNetworkState === NetworkState.DISCONNECTED || 
+            this.currentNetworkState === NetworkState.CONNECTING) {
+          console.log('🌐 Local genesis found - activating network state');
+          this.updateNetworkState(NetworkState.ACTIVE);
+        }
+        
+        this.emit('genesisStateChanged', this.genesisState);
+        return this.genesisState;
+      }
+      
+      // If we're in bootstrap mode, check bootstrap service
       if (this.bootstrapService) {
         const bootstrapState = this.bootstrapService.getState();
         

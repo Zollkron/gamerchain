@@ -170,24 +170,25 @@ class BlockchainSyncService extends EventEmitter {
   }
 
   /**
-   * Start P2P network service (Coordinator-only mode)
+   * Start P2P network service (Hybrid mode: Coordinator + Local blockchain)
    */
   async startP2PService() {
     return new Promise((resolve, reject) => {
-      this.emit('status', { type: 'info', message: 'Iniciando modo coordinador...' });
+      this.emit('status', { type: 'info', message: 'Iniciando servicios blockchain...' });
       
       try {
-        // TEMPORARY: Use coordinator-only mode instead of direct P2P
-        console.log('🌐 Running in coordinator-only mode - P2P service disabled');
-        console.log('📡 Nodes will communicate through the Network Coordinator');
+        console.log('🔗 Starting hybrid blockchain mode (Coordinator + Local services)');
         
-        // Mark as connected for coordinator-only mode
-        this.syncStatus.isConnected = true;
-        this.syncStatus.peers = 1; // This node
-        this.updateSyncStatus();
-        this.emit('status', { type: 'success', message: 'Modo coordinador activado' });
+        // Start local blockchain service without complex P2P
+        this.startLocalBlockchainService().then(() => {
+          // Mark as connected
+          this.syncStatus.isConnected = true;
+          this.syncStatus.peers = 1; // This node
+          this.updateSyncStatus();
+          this.emit('status', { type: 'success', message: 'Servicios blockchain iniciados' });
+          resolve();
+        }).catch(reject);
         
-        resolve();
         return;
         
         // ORIGINAL P2P CODE (DISABLED FOR NOW)
@@ -567,6 +568,12 @@ class BlockchainSyncService extends EventEmitter {
   async stop() {
     this.emit('status', { type: 'info', message: 'Deteniendo servicios...' });
     
+    if (this.localAPIServer) {
+      this.localAPIServer.close();
+      this.localAPIServer = null;
+      console.log('✅ Local API server stopped');
+    }
+    
     if (this.apiProcess) {
       this.apiProcess.kill();
       this.apiProcess = null;
@@ -605,6 +612,456 @@ class BlockchainSyncService extends EventEmitter {
    */
   isServiceRunning() {
     return this.isRunning;
+  }
+
+  /**
+   * Start local blockchain service without P2P dependencies
+   */
+  async startLocalBlockchainService() {
+    try {
+      console.log('🚀 Starting local blockchain service...');
+      
+      // Initialize local blockchain
+      await this.initializeLocalBlockchain();
+      
+      // Start local API service
+      await this.startLocalAPI();
+      
+      // Mark service as running
+      this.isRunning = true;
+      
+      console.log('✅ Local blockchain service started successfully');
+      
+    } catch (error) {
+      console.error('❌ Error starting local blockchain service:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize local blockchain with genesis block
+   */
+  async initializeLocalBlockchain() {
+    try {
+      console.log('🔍 Initializing local blockchain...');
+      
+      // Check if genesis block exists
+      const genesisExists = await this.checkGenesisBlockExists();
+      
+      if (!genesisExists) {
+        console.log('🔨 Creating genesis block...');
+        await this.createLocalGenesisBlock();
+      } else {
+        console.log('✅ Genesis block found, loading blockchain...');
+        await this.loadExistingBlockchain();
+      }
+      
+      console.log('✅ Local blockchain initialized');
+      
+    } catch (error) {
+      console.error('❌ Error initializing local blockchain:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if genesis block exists
+   */
+  async checkGenesisBlockExists() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Check multiple possible locations for genesis block
+      const possiblePaths = [
+        path.join(process.cwd(), 'data', 'genesis_block.json'),
+        path.join(__dirname, '../../../data/genesis_block.json'),
+        path.join(process.resourcesPath || process.cwd(), 'data', 'genesis_block.json')
+      ];
+      
+      for (const genesisPath of possiblePaths) {
+        console.log(`🔍 Checking for genesis block at: ${genesisPath}`);
+        
+        if (fs.existsSync(genesisPath)) {
+          console.log(`✅ Genesis block found at: ${genesisPath}`);
+          
+          // Verify it's valid JSON
+          try {
+            const genesisData = JSON.parse(fs.readFileSync(genesisPath, 'utf8'));
+            if (genesisData.index === 0 && genesisData.hash) {
+              console.log(`✅ Valid genesis block loaded: ${genesisData.hash}`);
+              this.genesisBlockPath = genesisPath;
+              this.genesisBlock = genesisData;
+              return true;
+            }
+          } catch (parseError) {
+            console.warn(`⚠️ Invalid genesis block at ${genesisPath}:`, parseError.message);
+          }
+        }
+      }
+      
+      console.log('❌ No valid genesis block found');
+      return false;
+      
+    } catch (error) {
+      console.error('❌ Error checking genesis block:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a local genesis block
+   */
+  async createLocalGenesisBlock() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const crypto = require('crypto');
+      
+      // Get wallet address for genesis block
+      let walletAddress = 'local-wallet';
+      try {
+        const WalletService = require('./WalletService');
+        const walletsResult = await WalletService.getWallets();
+        
+        if (walletsResult.success && walletsResult.wallets.length > 0) {
+          walletAddress = walletsResult.wallets[0].address;
+          console.log(`🔑 Using wallet address for genesis: ${walletAddress}`);
+        } else {
+          console.log('⚠️ No wallets found, using default address for genesis');
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not get wallet address, using default:', error.message);
+      }
+      
+      // Create genesis block
+      const genesisBlock = {
+        index: 0,
+        timestamp: Date.now(),
+        data: {
+          type: 'genesis',
+          networkId: 'playergold-testnet-v1',
+          creator: walletAddress,
+          modelPath: '/models/bootstrap-model.bin',
+          peerCount: 1
+        },
+        previousHash: '0',
+        nonce: 0
+      };
+      
+      // Calculate hash
+      const blockString = JSON.stringify({
+        index: genesisBlock.index,
+        timestamp: genesisBlock.timestamp,
+        data: genesisBlock.data,
+        previousHash: genesisBlock.previousHash,
+        nonce: genesisBlock.nonce
+      });
+      
+      genesisBlock.hash = crypto.createHash('sha256').update(blockString).digest('hex');
+      
+      // Ensure data directory exists
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      // Save genesis block
+      const genesisPath = path.join(dataDir, 'genesis_block.json');
+      fs.writeFileSync(genesisPath, JSON.stringify(genesisBlock, null, 2));
+      
+      console.log(`✅ Genesis block created and saved to: ${genesisPath}`);
+      console.log(`🔗 Genesis hash: ${genesisBlock.hash}`);
+      
+      this.genesisBlockPath = genesisPath;
+      this.genesisBlock = genesisBlock;
+      
+      // Initialize blockchain with genesis block
+      await this.initializeBlockchainData(genesisBlock);
+      
+    } catch (error) {
+      console.error('❌ Error creating genesis block:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load existing blockchain
+   */
+  async loadExistingBlockchain() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Load blockchain data
+      const blockchainPath = path.join(path.dirname(this.genesisBlockPath), 'blockchain.json');
+      
+      if (fs.existsSync(blockchainPath)) {
+        const blockchainData = JSON.parse(fs.readFileSync(blockchainPath, 'utf8'));
+        console.log(`✅ Blockchain loaded: ${blockchainData.height} blocks`);
+        this.blockchain = blockchainData;
+      } else {
+        console.log('🔨 Initializing blockchain data from genesis block...');
+        await this.initializeBlockchainData(this.genesisBlock);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading blockchain:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize blockchain data structure
+   */
+  async initializeBlockchainData(genesisBlock) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const blockchain = {
+        blocks: [genesisBlock],
+        height: 1,
+        lastBlockHash: genesisBlock.hash,
+        genesisHash: genesisBlock.hash,
+        createdAt: new Date().toISOString(),
+        difficulty: 1,
+        totalWork: 1
+      };
+      
+      // Save blockchain data
+      const blockchainPath = path.join(path.dirname(this.genesisBlockPath), 'blockchain.json');
+      fs.writeFileSync(blockchainPath, JSON.stringify(blockchain, null, 2));
+      
+      console.log(`✅ Blockchain data initialized at: ${blockchainPath}`);
+      this.blockchain = blockchain;
+      
+    } catch (error) {
+      console.error('❌ Error initializing blockchain data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Start local API service for wallet operations
+   */
+  async startLocalAPI() {
+    try {
+      console.log('🌐 Starting local API service...');
+      
+      // Create a simple HTTP server for wallet operations
+      const http = require('http');
+      const url = require('url');
+      
+      this.localAPIServer = http.createServer((req, res) => {
+        this.handleAPIRequest(req, res);
+      });
+      
+      // Start server on port 19080
+      this.localAPIServer.listen(19080, '127.0.0.1', () => {
+        console.log('✅ Local API service started on http://127.0.0.1:19080');
+      });
+      
+      // Handle server errors
+      this.localAPIServer.on('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+          console.log('⚠️ Port 19080 already in use - API service may already be running');
+        } else {
+          console.error('❌ Local API server error:', error);
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Error starting local API:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle API requests for wallet operations
+   */
+  async handleAPIRequest(req, res) {
+    try {
+      const url = require('url');
+      const parsedUrl = url.parse(req.url, true);
+      const path = parsedUrl.pathname;
+      const method = req.method;
+      
+      // Set CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Content-Type', 'application/json');
+      
+      // Handle preflight requests
+      if (method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+      }
+      
+      console.log(`📡 API Request: ${method} ${path}`);
+      
+      // Route API requests
+      if (path === '/api/v1/health') {
+        await this.handleHealthCheck(req, res);
+      } else if (path === '/api/v1/blockchain/info') {
+        await this.handleBlockchainInfo(req, res);
+      } else if (path === '/api/v1/mining/stats') {
+        await this.handleMiningStats(req, res, parsedUrl.query);
+      } else if (path === '/api/v1/wallet/balance') {
+        await this.handleWalletBalance(req, res, parsedUrl.query);
+      } else if (path === '/api/v1/transactions') {
+        await this.handleTransactions(req, res, parsedUrl.query);
+      } else {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
+      
+    } catch (error) {
+      console.error('❌ API request error:', error);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+
+  /**
+   * Handle health check endpoint
+   */
+  async handleHealthCheck(req, res) {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      status: 'healthy',
+      service: 'local-blockchain-api',
+      timestamp: new Date().toISOString(),
+      blockchain: {
+        height: this.blockchain?.height || 0,
+        genesisHash: this.genesisBlock?.hash || null
+      }
+    }));
+  }
+
+  /**
+   * Handle blockchain info endpoint
+   */
+  async handleBlockchainInfo(req, res) {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      success: true,
+      blockchain: {
+        height: this.blockchain?.height || 0,
+        lastBlockHash: this.blockchain?.lastBlockHash || null,
+        genesisHash: this.blockchain?.genesisHash || null,
+        difficulty: this.blockchain?.difficulty || 1,
+        totalWork: this.blockchain?.totalWork || 1
+      }
+    }));
+  }
+
+  /**
+   * Handle mining stats endpoint
+   */
+  async handleMiningStats(req, res, query) {
+    const walletAddress = query.address;
+    
+    if (!walletAddress) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: 'Wallet address required' }));
+      return;
+    }
+    
+    // Check if this is the genesis creator
+    const isGenesisCreator = this.genesisBlock && this.genesisBlock.data.creator === walletAddress;
+    
+    // Simulate mining stats for local wallet
+    const stats = {
+      success: true,
+      stats: {
+        address: walletAddress,
+        hashRate: isGenesisCreator ? 1500 : 500, // Higher hash rate for genesis creator
+        blocksFound: isGenesisCreator ? 1 : 0, // Genesis block for creator
+        totalReward: isGenesisCreator ? 50 : 0, // Genesis reward for creator
+        lastBlockTime: this.genesisBlock?.timestamp || Date.now(),
+        isActive: true,
+        difficulty: this.blockchain?.difficulty || 1,
+        isGenesisCreator: isGenesisCreator
+      }
+    };
+    
+    console.log(`⛏️ Mining stats for ${walletAddress}: ${JSON.stringify(stats.stats)}`);
+    
+    res.writeHead(200);
+    res.end(JSON.stringify(stats));
+  }
+
+  /**
+   * Handle wallet balance endpoint
+   */
+  async handleWalletBalance(req, res, query) {
+    const walletAddress = query.address;
+    
+    if (!walletAddress) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: 'Wallet address required' }));
+      return;
+    }
+    
+    // For genesis creator, give initial balance
+    let balance = 0;
+    if (this.genesisBlock && this.genesisBlock.data.creator === walletAddress) {
+      balance = 50; // Genesis reward
+      console.log(`💰 Genesis creator balance: ${balance} PG for ${walletAddress}`);
+    } else {
+      console.log(`💰 Non-genesis wallet balance: ${balance} PG for ${walletAddress}`);
+    }
+    
+    const balanceInfo = {
+      success: true,
+      balance: {
+        address: walletAddress,
+        confirmed: balance,
+        unconfirmed: 0,
+        total: balance
+      }
+    };
+    
+    res.writeHead(200);
+    res.end(JSON.stringify(balanceInfo));
+  }
+
+  /**
+   * Handle transactions endpoint
+   */
+  async handleTransactions(req, res, query) {
+    const walletAddress = query.address;
+    
+    if (!walletAddress) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: 'Wallet address required' }));
+      return;
+    }
+    
+    const transactions = [];
+    
+    // Add genesis transaction if this is the creator
+    if (this.genesisBlock && this.genesisBlock.data.creator === walletAddress) {
+      transactions.push({
+        txid: this.genesisBlock.hash,
+        type: 'genesis_reward',
+        amount: 50,
+        timestamp: this.genesisBlock.timestamp,
+        confirmations: 1,
+        blockHash: this.genesisBlock.hash,
+        blockIndex: 0
+      });
+    }
+    
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      success: true,
+      transactions: transactions,
+      total: transactions.length
+    }));
   }
 
   /**

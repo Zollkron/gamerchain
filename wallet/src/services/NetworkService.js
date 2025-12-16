@@ -122,18 +122,39 @@ class NetworkService {
    * Get the best available API URL (local node first, then fallback)
    */
   getBestApiUrl() {
+    // First, check if local API is available (from BlockchainSyncService)
+    if (this.isLocalApiAvailable()) {
+      console.log('🌐 Using local API: http://127.0.0.1:19080');
+      return 'http://127.0.0.1:19080';
+    }
+    
     const nodeService = this.getBlockchainNodeService();
     
-    // Try local node first if available
+    // Try local node service if available
     if (nodeService && nodeService.isRunning) {
       const localUrl = nodeService.getApiUrl();
       if (localUrl) {
+        console.log(`🌐 Using node service API: ${localUrl}`);
         return localUrl;
       }
     }
     
     // Fallback to configured URL
+    console.log(`🌐 Using external API: ${this.config.apiUrl}`);
     return this.config.apiUrl;
+  }
+
+  /**
+   * Check if local API is available
+   */
+  isLocalApiAvailable() {
+    try {
+      // Check if BlockchainSyncService is running
+      const BlockchainSyncService = require('./BlockchainSyncService');
+      return BlockchainSyncService.isServiceRunning && BlockchainSyncService.isServiceRunning();
+    } catch (error) {
+      return false;
+    }
   }
 
   /**

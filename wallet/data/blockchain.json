@@ -1,0 +1,22 @@
+{
+  "blocks": [
+    {
+      "index": 0,
+      "timestamp": 1765918026241,
+      "data": {
+        "type": "genesis",
+        "networkId": "playergold-testnet-v1",
+        "creator": "PGbca477215c146f3238db77953948f6465a58c2",
+        "modelPath": "/models/bootstrap-model.bin",
+        "peerCount": 4
+      },
+      "previousHash": "0",
+      "hash": "8a0e1aea227c5cd0c9293a56e8fd2f41f69b89527c06a9d89f6f3309c838386f",
+      "nonce": 0
+    }
+  ],
+  "height": 1,
+  "lastBlockHash": "8a0e1aea227c5cd0c9293a56e8fd2f41f69b89527c06a9d89f6f3309c838386f",
+  "genesisHash": "8a0e1aea227c5cd0c9293a56e8fd2f41f69b89527c06a9d89f6f3309c838386f",
+  "createdAt": "2025-12-16T20:47:06.247Z"
+}

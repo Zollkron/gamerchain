@@ -1,0 +1,14 @@
+{
+  "index": 0,
+  "timestamp": 1765917290556,
+  "data": {
+    "type": "genesis",
+    "networkId": "playergold-testnet-v1",
+    "creator": "PGbca477215c146f3238db77953948f6465a58c2",
+    "modelPath": "/models/bootstrap-model.bin",
+    "peerCount": 4
+  },
+  "previousHash": "0",
+  "hash": "79c2ee51fdac8b25e1aeaafb0437d1b8b0825a0562850317fd636111ff3d7641",
+  "nonce": 0
+}
