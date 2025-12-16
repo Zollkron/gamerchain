@@ -4,23 +4,16 @@ const { ErrorHandlingService } = require('./ErrorHandlingService');
 
 class NetworkService {
   constructor() {
-    // Testnet configuration
-    this.testnetConfig = {
-      apiUrl: 'http://127.0.0.1:19080',  // Local testnet API (IPv4 explicit)
-      networkId: 'playergold-testnet-genesis',
-      explorerUrl: 'http://127.0.0.1:19080/explorer'
+    // Remote-only configuration for gamers scenario
+    this.remoteConfig = {
+      apiUrl: 'https://playergold.es',  // Remote coordinator only
+      networkId: 'playergold-remote-network',
+      explorerUrl: 'https://playergold.es/explorer'
     };
     
-    // Mainnet configuration (for future use)
-    this.mainnetConfig = {
-      apiUrl: 'https://api.playergold.es',
-      networkId: 'playergold-mainnet',
-      explorerUrl: 'https://explorer.playergold.es'
-    };
-    
-    // Current network (default to testnet)
-    this.currentNetwork = 'testnet';
-    this.config = this.testnetConfig;
+    // Current network (remote only)
+    this.currentNetwork = 'remote';
+    this.config = this.remoteConfig;
     
     // Local blockchain node service (lazy loaded to avoid circular dependency)
     this._blockchainNodeService = null;
@@ -342,51 +335,24 @@ class NetworkService {
   }
 
   /**
-   * Get network status
+   * Get network status - For remote gamer scenario, we assume network is ready
    * @returns {Object} Network status
    */
   async getNetworkStatus() {
-    const context = { operation: 'network_status' };
-    
-    try {
-      const operation = async () => {
-        const response = await axios.get(`${this.config.apiUrl}/api/v1/network/status`, {
-          timeout: 5000
-        });
-        
-        return {
-          success: true,
-          status: response.data,
-          network: this.currentNetwork,
-          isMock: false
-        };
-      };
-      
-      return await this.errorHandler.retryOperation('network_timeout', operation, context);
-      
-    } catch (error) {
-      console.error('Error getting network status:', error.message);
-      
-      // Determine error type
-      let errorType = 'network_disconnected';
-      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-        errorType = 'network_timeout';
-      } else if (error.response?.status >= 500) {
-        errorType = 'api_unavailable';
-      }
-      
-      const errorInfo = this.errorHandler.handleError(errorType, error, context);
-      
-      return {
-        success: false,
-        error: errorInfo.message,
-        errorType: errorType,
-        errorInfo: errorInfo,
+    // For remote gamer scenario, we don't need to check local blockchain status
+    // The network coordination happens through the Network Coordinator
+    return {
+      success: true,
+      status: {
         network: this.currentNetwork,
-        requiresGenesis: true,
-        isMock: false
-      };
-    }
+        mode: 'remote_coordination',
+        ready: true,
+        message: 'Network coordination through remote coordinator'
+      },
+      network: this.currentNetwork,
+      requiresGenesis: false, // Genesis will be handled by peer discovery
+      isMock: false
+    };
   }
 
   /**

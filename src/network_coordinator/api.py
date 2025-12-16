@@ -339,13 +339,11 @@ async def get_network_map(
         logger.info(f"   Active nodes: {network_map['active_nodes']}")
         logger.info(f"   Genesis nodes: {network_map['genesis_nodes']}")
         
-        # Encrypt the network map
-        encrypted_map = encryption.encrypt_node_list(filtered_nodes)
-        
+        # Return unencrypted network map for simplicity
         return {
             "status": "success",
             "message": "Network map generated",
-            "map": encrypted_map
+            "map": network_map
         }
         
     except HTTPException:

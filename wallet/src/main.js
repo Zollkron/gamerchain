@@ -545,9 +545,9 @@ ipcMain.handle('get-network-info', async () => {
   } catch (error) {
     console.error('Error getting network info:', error);
     return {
-      network: 'testnet',
-      networkId: 'playergold-testnet-genesis',
-      apiUrl: 'http://localhost:19080'
+      network: 'remote',
+      networkId: 'playergold-remote-network',
+      apiUrl: 'https://playergold.es'
     };
   }
 });

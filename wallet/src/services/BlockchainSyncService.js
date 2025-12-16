@@ -101,22 +101,10 @@ class BlockchainSyncService extends EventEmitter {
    */
   async checkAllServicesRunning() {
     try {
-      // Check API service (most important)
-      const response = await axios.get('http://127.0.0.1:19080/api/v1/health', { timeout: 3000 });
-      
-      if (response.status === 200) {
-        console.log('✅ External blockchain node detected:', response.data);
-        
-        // Check if it's our genesis node
-        if (response.data.node_id === 'genesis_node_1') {
-          console.log('🏗️  Genesis node detected - using external node');
-          return true;
-        }
-        
-        // Any other healthy API service
-        console.log('🌐 External API service detected - using external node');
-        return true;
-      }
+      // For remote gamers scenario, skip all local service checks
+      // Always return false to avoid local dependencies
+      console.log('🌐 Skipping local blockchain service checks - using remote-only mode');
+      return false;
       
       return false;
     } catch (error) {

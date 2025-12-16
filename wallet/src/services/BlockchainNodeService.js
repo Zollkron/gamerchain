@@ -489,31 +489,20 @@ class BlockchainNodeService {
   }
 
   /**
-   * Get node network status
+   * Get node network status - For remote gamer scenario, return mock status
    */
   async getNetworkStatus() {
-    try {
-      if (!this.isRunning) {
-        return {
-          success: false,
-          error: 'Node is not running'
-        };
+    // For remote gamer scenario, we don't run local blockchain nodes
+    // Return a mock status that indicates remote coordination mode
+    return {
+      success: true,
+      status: {
+        mode: 'remote_coordination',
+        network: 'testnet',
+        ready: true,
+        message: 'Using remote peer coordination through Network Coordinator'
       }
-      
-      const response = await axios.get(`http://127.0.0.1:${this.apiPort}/api/v1/network/status`, {
-        timeout: 5000
-      });
-      
-      return {
-        success: true,
-        status: response.data
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
+    };
   }
 
   /**

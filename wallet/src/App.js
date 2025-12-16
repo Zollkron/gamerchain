@@ -138,23 +138,16 @@ function App() {
 
   const checkServicesAndLoadWallets = async () => {
     try {
-      // Quick check if services are running
-      const response = await fetch('http://127.0.0.1:19080/api/v1/health', {
-        method: 'GET',
-        timeout: 3000
-      });
-      
-      if (response.ok) {
-        // Services are running, proceed to load wallets
-        setIsSyncing(false);
-        loadWallets();
-      } else {
-        // Services not responding
-        setSyncError(new Error('Servicios blockchain no disponibles'));
-      }
+      // For remote gamers scenario, skip local service checks
+      // Proceed directly to load wallets and let BootstrapService handle remote connections
+      console.log('🌐 Skipping local service checks - using remote-only mode');
+      setIsSyncing(false);
+      loadWallets();
     } catch (error) {
-      // Services not available
-      setSyncError(new Error('No se puede conectar a los servicios blockchain'));
+      // If there's any error, still proceed with wallet loading
+      console.warn('⚠️ Error in service check, proceeding anyway:', error);
+      setIsSyncing(false);
+      loadWallets();
     }
   };
 

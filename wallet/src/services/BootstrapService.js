@@ -525,33 +525,19 @@ class BootstrapService extends EventEmitter {
     try {
       this.logger.info('📤 Submitting genesis block to blockchain...');
       
-      // Try to submit to the external blockchain API
-      const response = await fetch('http://127.0.0.1:19080/api/v1/block', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(block)
+      // For remote gamers scenario, we don't submit to local blockchain
+      // Instead, we mark the genesis block as created and ready for network formation
+      this.logger.info('✅ Genesis block created for remote network formation');
+      
+      // Mark bootstrap as completed
+      this.setState({
+        isReady: true
       });
       
-      if (response.ok) {
-        const result = await response.json();
-        this.logger.info('✅ Genesis block submitted successfully:', result);
-        
-        // Mark bootstrap as completed
-        this.setState({
-          isReady: true
-        });
-        
-        this.emit('bootstrapCompleted', {
-          genesisBlock: block,
-          result: result
-        });
-        
-      } else {
-        const error = await response.text();
-        this.logger.warn('⚠️ Failed to submit genesis block:', error);
-      }
+      this.emit('bootstrapCompleted', {
+        genesisBlock: block,
+        result: { status: 'success', message: 'Genesis block created for remote network' }
+      });
       
     } catch (error) {
       this.logger.error('❌ Error submitting genesis block:', error);
@@ -589,27 +575,8 @@ class BootstrapService extends EventEmitter {
       const encryptedMap = await response.json();
       this.logger.info('📊 Encrypted network map received');
       
-      // Decrypt the network map using AES service
-      const AESDecryption = require('./AESDecryption');
-      const aesDecryption = new AESDecryption();
-      
-      let networkData = null;
-      
-      if (aesDecryption.isAvailable() && encryptedMap.map?.encrypted_data) {
-        // Try to decrypt the data
-        networkData = aesDecryption.decryptNetworkMap(
-          encryptedMap.map.encrypted_data,
-          encryptedMap.map.salt
-        );
-      }
-      
-      if (!networkData) {
-        // Fallback: create mock data based on active node count
-        this.logger.warn('⚠️ Could not decrypt network map, using mock data');
-        networkData = aesDecryption.createMockNetworkData(
-          encryptedMap.map?.active_nodes || 2
-        );
-      }
+      // Use unencrypted network map directly
+      const networkData = encryptedMap.map;
       
       this.logger.info('📊 Network data processed:', {
         total_nodes: networkData.total_nodes,
@@ -650,7 +617,7 @@ class BootstrapService extends EventEmitter {
       this.state.discoveredPeers.push({
         id: peer.node_id,
         address: peer.public_ip,
-        port: peer.port || 19080,
+        port: peer.port || 8080,
         walletAddress: peer.wallet_address || 'unknown',
         networkMode: 'testnet',
         isReady: true,

@@ -138,12 +138,10 @@ const SyncProgress = ({ onSyncComplete, onError }) => {
 
   const checkServicesRunning = async () => {
     try {
-      // Check API service
-      const response = await fetch('http://127.0.0.1:19080/api/v1/health', {
-        method: 'GET',
-        timeout: 3000
-      });
-      return response.ok;
+      // For remote gamers scenario, skip local service checks
+      // Always return false to proceed with remote initialization
+      console.log('🌐 Skipping local service check - using remote-only mode');
+      return false;
     } catch (error) {
       return false;
     }

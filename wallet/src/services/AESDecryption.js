@@ -72,9 +72,9 @@ class AESDecryption {
         try {
             console.log('🔓 Attempting to decrypt network map...');
             
-            // Convert hex strings to buffers
-            const encryptedBuffer = Buffer.from(encryptedData, 'hex');
-            const saltBuffer = Buffer.from(salt, 'hex');
+            // Convert base64 strings to buffers (server sends base64, not hex)
+            const encryptedBuffer = Buffer.from(encryptedData, 'base64');
+            const saltBuffer = salt ? Buffer.from(salt, 'base64') : null;
             
             // For AES-256-GCM, we need to extract the IV and auth tag
             // Assuming format: IV (12 bytes) + encrypted data + auth tag (16 bytes)
@@ -90,8 +90,7 @@ class AESDecryption {
             const ciphertext = encryptedBuffer.slice(ivLength, -tagLength);
             
             // Create decipher
-            const decipher = crypto.createDecipherGCM('aes-256-gcm', this.masterKey);
-            decipher.setIV(iv);
+            const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv);
             decipher.setAuthTag(tag);
             
             // Decrypt
@@ -124,8 +123,8 @@ class AESDecryption {
         try {
             console.log('🔄 Trying alternative decryption method (AES-256-CBC)...');
             
-            const encryptedBuffer = Buffer.from(encryptedData, 'hex');
-            const saltBuffer = Buffer.from(salt, 'hex');
+            const encryptedBuffer = Buffer.from(encryptedData, 'base64');
+            const saltBuffer = salt ? Buffer.from(salt, 'base64') : null;
             
             // Assume IV is first 16 bytes for CBC
             const ivLength = 16;
@@ -138,8 +137,7 @@ class AESDecryption {
             const ciphertext = encryptedBuffer.slice(ivLength);
             
             // Create decipher
-            const decipher = crypto.createDecipher('aes-256-cbc', this.masterKey);
-            decipher.setIV(iv);
+            const decipher = crypto.createDecipheriv('aes-256-cbc', this.masterKey, iv);
             
             // Decrypt
             let decrypted = decipher.update(ciphertext, null, 'utf8');
