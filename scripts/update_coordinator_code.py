@@ -69,10 +69,11 @@ def check_source_files():
     log("Verificando archivos fuente actualizados...")
     
     required_files = [
-        "network_coordinator/encryption.py",
-        "network_coordinator/server.py",
-        "network_coordinator/registry.py",
-        "network_coordinator/models.py"
+        "network_coordinator/models.py",
+        "network_coordinator/api.py", 
+        "network_coordinator/database.py",
+        "network_coordinator/utils.py",
+        "network_coordinator/encryption.py"
     ]
     
     missing_files = []
@@ -159,10 +160,11 @@ def update_source_code():
     try:
         # Archivos a actualizar (rutas relativas desde /opt/src/)
         files_to_update = [
-            "network_coordinator/encryption.py",
-            "network_coordinator/server.py", 
-            "network_coordinator/registry.py",
-            "network_coordinator/models.py"
+            "network_coordinator/models.py",
+            "network_coordinator/api.py",
+            "network_coordinator/database.py",
+            "network_coordinator/utils.py",
+            "network_coordinator/encryption.py"
         ]
         
         updated_files = []
@@ -233,6 +235,17 @@ def verify_updated_code():
             success("Nueva funcionalidad de certificados detectada")
         else:
             warning("Nueva funcionalidad de certificados no detectada")
+        
+        # Verificar models.py para las correcciones de génesis
+        models_file = f"{COORDINATOR_HOME}/src/network_coordinator/models.py"
+        if os.path.exists(models_file):
+            with open(models_file, 'r') as f:
+                models_code = f.read()
+            
+            if "is_genesis = Column(Boolean" in models_code:
+                success("Correcciones de nodos génesis detectadas")
+            else:
+                warning("Correcciones de nodos génesis no detectadas")
         
         return True
         

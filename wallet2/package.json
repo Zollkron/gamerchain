@@ -1,0 +1,123 @@
+{
+  "name": "playergold-wallet",
+  "version": "1.0.0",
+  "description": "PlayerGold Desktop Wallet - Hecho por gamers para gamers",
+  "main": "src/main.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run react-dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "react-dev": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "electron-build": "npm run build && electron-builder",
+    "build-portable": "node scripts/build-portable.js",
+    "build-complete": "build-complete.bat",
+    "test": "react-app-rewired test"
+  },
+  "build": {
+    "appId": "com.playergold.wallet",
+    "productName": "PlayerGold Wallet",
+    "directories": {
+      "output": "dist/windows"
+    },
+    "files": [
+      "build/**/*",
+      "src/main.js",
+      "src/preload.js",
+      "src/services/**/*",
+      "node_modules/**/*",
+      "!node_modules/**/{CHANGELOG.md,README.md,readme.md,changelog.md}",
+      "!node_modules/**/test/**",
+      "!node_modules/**/*.d.ts"
+    ],
+    "asarUnpack": [
+      "src/main.js",
+      "src/preload.js"
+    ],
+    "extraFiles": [
+      {
+        "from": "build",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../scripts",
+        "to": "scripts",
+        "filter": [
+          "**/*.py"
+        ]
+      }
+    ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "mac": {
+      "category": "public.app-category.finance"
+    },
+    "win": {
+      "target": "nsis",
+      "sign": null
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bip39": "^3.1.0",
+    "crypto-js": "^4.1.1",
+    "electron-store": "^8.1.0",
+    "hdkey": "^2.1.0",
+    "qrcode": "^1.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.8.0",
+    "secp256k1": "^5.0.0",
+    "speakeasy": "^2.0.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "concurrently": "^7.6.0",
+    "crypto-browserify": "^3.12.1",
+    "electron": "^27.3.11",
+    "electron-builder": "^24.13.3",
+    "fast-check": "^4.4.0",
+    "https-browserify": "^1.0.0",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "react-app-rewired": "^2.2.1",
+    "react-scripts": "^5.0.1",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "url": "^0.11.4",
+    "wait-on": "^7.2.0"
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(axios)/)"
+    ],
+    "moduleNameMapper": {
+      "^axios$": "axios/dist/node/axios.cjs"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

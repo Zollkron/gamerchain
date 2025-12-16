@@ -55,6 +55,9 @@ class ServiceIntegrationManager {
       // Step 6: Set up service integrations
       await this.setupServiceIntegrations();
       
+      // Step 7: Auto-initialize pioneer mode if in bootstrap mode
+      await this.autoInitializePioneerMode();
+      
       this.initialized = true;
       console.log('✅ All wallet services initialized successfully');
       
@@ -174,6 +177,63 @@ class ServiceIntegrationManager {
     }
     
     return stats;
+  }
+  
+  /**
+   * Auto-initialize pioneer mode if conditions are met
+   */
+  async autoInitializePioneerMode() {
+    try {
+      if (!this.services.bootstrapService) {
+        return;
+      }
+      
+      // Check if we should auto-initialize pioneer mode
+      const shouldInitialize = await this.shouldAutoInitializePioneerMode();
+      
+      if (shouldInitialize) {
+        console.log('🚀 Auto-initializing pioneer mode for bootstrap...');
+        await this.services.bootstrapService.initializePioneerMode();
+        console.log('✅ Pioneer mode auto-initialization completed');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error during pioneer mode auto-initialization:', error);
+    }
+  }
+  
+  /**
+   * Check if we should auto-initialize pioneer mode
+   */
+  async shouldAutoInitializePioneerMode() {
+    try {
+      // Check if network validator indicates pioneer mode
+      if (this.services.networkService && this.services.networkService.networkValidator) {
+        const networkMap = this.services.networkService.networkValidator.getCanonicalNetworkMap();
+        if (networkMap) {
+          const isPioneer = this.services.networkService.networkValidator.isPioneerNode(networkMap);
+          if (isPioneer) {
+            console.log('🔍 Network validator indicates pioneer mode - auto-initializing');
+            return true;
+          }
+        }
+      }
+      
+      // Check environment variables
+      const isPioneerMode = process.env.PLAYERGOLD_BOOTSTRAP_MODE === 'auto' || process.argv.includes('--pioneer-mode');
+      if (isPioneerMode) {
+        console.log('🔍 Environment indicates pioneer mode - auto-initializing');
+        return true;
+      }
+      
+      // Check if no genesis block exists (bootstrap condition)
+      // This would indicate we need to bootstrap the network
+      return false;
+      
+    } catch (error) {
+      console.error('Error checking pioneer mode conditions:', error);
+      return false;
+    }
   }
   
   /**

@@ -1,225 +1,146 @@
+#!/usr/bin/env python3
 """
-Data models for Network Coordinator
+Network Coordinator Database Models
+
+Fixed version that properly handles node registration and genesis node detection
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
-from typing import List, Optional
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, Enum
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql import func
+from enum import Enum as PyEnum
 import json
 
+Base = declarative_base()
 
-class NodeType(Enum):
-    """Types of nodes in the network"""
+
+class NodeType(PyEnum):
+    """Node type enumeration"""
     GENESIS = "genesis"
-    REGULAR = "regular"
-    AI_MINING = "ai_mining"
-    BACKUP = "backup"
+    VALIDATOR = "validator" 
+    MINER = "miner"
+    RELAY = "relay"
+    LIGHT = "light"
 
 
-class NodeStatus(Enum):
-    """Node status states"""
+class NodeStatus(PyEnum):
+    """Node status enumeration"""
     ACTIVE = "active"
     INACTIVE = "inactive"
-    SUSPICIOUS = "suspicious"
-    BLACKLISTED = "blacklisted"
+    OFFLINE = "offline"
 
 
-@dataclass
-class NetworkNode:
-    """Represents a node in the PlayerGold network"""
-    node_id: str                    # Unique identifier (public key hash)
-    public_ip: str                  # Public IP address (will be encrypted)
-    port: int                       # P2P port
-    latitude: float                 # Geographic latitude
-    longitude: float                # Geographic longitude
-    os_info: str                    # Operating system info
-    is_genesis: bool                # Whether node can create genesis blocks
-    last_keepalive: datetime        # Last KeepAlive timestamp
-    blockchain_height: int          # Current blockchain height
-    connected_peers: int            # Number of connected peers
-    node_type: NodeType             # Type of node
-    reputation_score: float = 1.0   # Node reputation (0.0-1.0)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    status: NodeStatus = NodeStatus.ACTIVE
+class NetworkNode(Base):
+    """Network node model with proper genesis node support"""
+    __tablename__ = 'network_nodes'
     
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization"""
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    node_id = Column(String(255), unique=True, nullable=False, index=True)
+    public_ip = Column(String(45), nullable=False)  # IPv4/IPv6
+    port = Column(Integer, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    os_info = Column(String(255), nullable=True)
+    
+    # FIXED: Use proper enum handling for node_type
+    node_type = Column(Enum(NodeType), nullable=False, default=NodeType.GENESIS)
+    
+    # FIXED: Add explicit is_genesis boolean field for easy querying
+    is_genesis = Column(Boolean, nullable=False, default=False)
+    
+    public_key = Column(Text, nullable=True)
+    signature = Column(Text, nullable=True)
+    
+    # Status tracking
+    status = Column(Enum(NodeStatus), nullable=False, default=NodeStatus.ACTIVE)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_seen = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Keepalive data
+    blockchain_height = Column(Integer, default=0)
+    connected_peers = Column(Integer, default=0)
+    cpu_usage = Column(Float, default=0.0)
+    memory_usage = Column(Float, default=0.0)
+    network_latency = Column(Float, default=0.0)
+    ai_model_loaded = Column(Boolean, default=False)
+    mining_active = Column(Boolean, default=False)
+    
+    def __repr__(self):
+        return f"<NetworkNode(node_id='{self.node_id}', type='{self.node_type}', genesis={self.is_genesis})>"
+    
+    def to_dict(self):
+        """Convert to dictionary for JSON serialization"""
         return {
+            'id': self.id,
             'node_id': self.node_id,
-            'public_ip': self.public_ip,
+            'ip': self.public_ip,
             'port': self.port,
             'latitude': self.latitude,
             'longitude': self.longitude,
             'os_info': self.os_info,
+            'node_type': self.node_type.value if self.node_type else 'unknown',
             'is_genesis': self.is_genesis,
-            'last_keepalive': self.last_keepalive.isoformat(),
+            'public_key': self.public_key,
+            'status': self.status.value if self.status else 'unknown',
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_seen': self.last_seen.isoformat() if self.last_seen else None,
             'blockchain_height': self.blockchain_height,
             'connected_peers': self.connected_peers,
-            'node_type': self.node_type.value,
-            'reputation_score': self.reputation_score,
-            'created_at': self.created_at.isoformat(),
-            'status': self.status.value
+            'cpu_usage': self.cpu_usage,
+            'memory_usage': self.memory_usage,
+            'network_latency': self.network_latency,
+            'ai_model_loaded': self.ai_model_loaded,
+            'mining_active': self.mining_active
         }
     
     @classmethod
-    def from_dict(cls, data: dict) -> 'NetworkNode':
-        """Create from dictionary"""
+    def from_registration_data(cls, data):
+        """Create NetworkNode from registration data with proper type handling"""
+        # FIXED: Properly handle node_type conversion
+        node_type_str = data.get('node_type', 'genesis').lower()
+        
+        # Map string to enum
+        node_type = NodeType.GENESIS  # Default
+        if node_type_str == 'genesis':
+            node_type = NodeType.GENESIS
+        elif node_type_str == 'validator':
+            node_type = NodeType.VALIDATOR
+        elif node_type_str == 'miner':
+            node_type = NodeType.MINER
+        elif node_type_str == 'relay':
+            node_type = NodeType.RELAY
+        elif node_type_str == 'light':
+            node_type = NodeType.LIGHT
+        
+        # FIXED: Set is_genesis based on node_type
+        is_genesis = (node_type == NodeType.GENESIS)
+        
         return cls(
             node_id=data['node_id'],
             public_ip=data['public_ip'],
             port=data['port'],
-            latitude=data['latitude'],
-            longitude=data['longitude'],
-            os_info=data['os_info'],
-            is_genesis=data['is_genesis'],
-            last_keepalive=datetime.fromisoformat(data['last_keepalive']),
-            blockchain_height=data['blockchain_height'],
-            connected_peers=data['connected_peers'],
-            node_type=NodeType(data['node_type']),
-            reputation_score=data.get('reputation_score', 1.0),
-            created_at=datetime.fromisoformat(data['created_at']),
-            status=NodeStatus(data['status'])
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
+            os_info=data.get('os_info'),
+            node_type=node_type,
+            is_genesis=is_genesis,  # FIXED: Explicitly set this field
+            public_key=data.get('public_key'),
+            signature=data.get('signature'),
+            status=NodeStatus.ACTIVE
         )
-
-
-@dataclass
-class NodeStatusUpdate:
-    """Status update from a node"""
-    blockchain_height: int          # Current blockchain height
-    connected_peers: int            # Number of connected peers
-    cpu_usage: float                # CPU usage percentage
-    memory_usage: float             # Memory usage percentage
-    network_latency: float          # Average network latency
-    ai_model_loaded: bool           # Whether AI model is loaded
-    mining_active: bool             # Whether mining is active
-    last_block_time: Optional[datetime] = None  # Last block processed
-
-
-@dataclass
-class EncryptedNetworkMap:
-    """Encrypted network map for distribution"""
-    encrypted_data: bytes           # AES-256 encrypted node list
-    salt: bytes                     # Unique salt for encryption
-    timestamp: datetime             # Map generation timestamp
-    signature: bytes                # Digital signature for integrity
-    version: int                    # Map version number
-    total_nodes: int                # Total nodes in map
-    active_nodes: int               # Currently active nodes
-    genesis_nodes: int              # Number of genesis nodes
     
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            'encrypted_data': self.encrypted_data.hex(),
-            'salt': self.salt.hex(),
-            'timestamp': self.timestamp.isoformat(),
-            'signature': self.signature.hex(),
-            'version': self.version,
-            'total_nodes': self.total_nodes,
-            'active_nodes': self.active_nodes,
-            'genesis_nodes': self.genesis_nodes
-        }
-    
-    @classmethod
-    def from_dict(cls, data: dict) -> 'EncryptedNetworkMap':
-        """Create from dictionary"""
-        return cls(
-            encrypted_data=bytes.fromhex(data['encrypted_data']),
-            salt=bytes.fromhex(data['salt']),
-            timestamp=datetime.fromisoformat(data['timestamp']),
-            signature=bytes.fromhex(data['signature']),
-            version=data['version'],
-            total_nodes=data['total_nodes'],
-            active_nodes=data['active_nodes'],
-            genesis_nodes=data['genesis_nodes']
-        )
-
-
-@dataclass
-class RegistrationRequest:
-    """Node registration request"""
-    node_id: str
-    public_ip: str
-    port: int
-    latitude: float
-    longitude: float
-    os_info: str
-    node_type: NodeType
-    public_key: str                 # For authentication
-    signature: str                  # Signature of registration data
-
-
-@dataclass
-class KeepAliveMessage:
-    """KeepAlive message from node"""
-    node_id: str
-    status_update: NodeStatusUpdate
-    signature: str                  # Signature for authentication
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-
-
-@dataclass
-class Location:
-    """Geographic location"""
-    latitude: float
-    longitude: float
-    
-    def distance_to(self, other: 'Location') -> float:
-        """Calculate distance to another location using Haversine formula"""
-        import math
-        
-        # Convert to radians
-        lat1, lon1 = math.radians(self.latitude), math.radians(self.longitude)
-        lat2, lon2 = math.radians(other.latitude), math.radians(other.longitude)
-        
-        # Haversine formula
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-        c = 2 * math.asin(math.sqrt(a))
-        
-        # Earth radius in kilometers
-        r = 6371
-        return c * r
-
-
-@dataclass
-class ForkDetection:
-    """Fork detection result"""
-    fork_id: str
-    detected_at: datetime
-    conflicting_chains: List[dict]  # Chain info with node counts
-    canonical_chain: str            # Selected canonical chain
-    affected_nodes: List[str]       # Nodes on wrong chain
-    resolution_status: str          # pending, resolved, failed
-
-
-@dataclass
-class NetworkConflict:
-    """Network conflict information"""
-    conflict_id: str
-    conflict_type: str              # fork, partition, inconsistency
-    detected_at: datetime
-    affected_nodes: List[str]
-    severity: str                   # low, medium, high, critical
-    auto_resolvable: bool
-
-
-@dataclass
-class BackupResult:
-    """Result of backup operation"""
-    backup_node_id: str
-    success: bool
-    timestamp: datetime
-    error_message: Optional[str] = None
-
-
-@dataclass
-class SyncResult:
-    """Result of synchronization operation"""
-    success: bool
-    synced_nodes: int
-    conflicts_resolved: int
-    timestamp: datetime
-    error_message: Optional[str] = None
+    def update_keepalive(self, data):
+        """Update node with keepalive data"""
+        self.blockchain_height = data.get('blockchain_height', 0)
+        self.connected_peers = data.get('connected_peers', 0)
+        self.cpu_usage = data.get('cpu_usage', 0.0)
+        self.memory_usage = data.get('memory_usage', 0.0)
+        self.network_latency = data.get('network_latency', 0.0)
+        self.ai_model_loaded = data.get('ai_model_loaded', False)
+        self.mining_active = data.get('mining_active', False)
+        self.status = NodeStatus.ACTIVE
+        # last_seen will be updated automatically by onupdate=func.now()

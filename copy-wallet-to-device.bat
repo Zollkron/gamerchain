@@ -132,12 +132,33 @@ echo.
 echo ¡Disfruta usando PlayerGold Wallet!
 ) > "%COPY_DIR%\INSTRUCCIONES.txt"
 
-REM Crear script de ejecución rápida
+REM Crear scripts de ejecución
 (
 echo @echo off
 echo echo Iniciando PlayerGold Wallet...
-echo start "PlayerGold Wallet.exe"
+echo start PlayerGold-Wallet.exe
 ) > "%COPY_DIR%\Ejecutar-Wallet.bat"
+
+REM Crear script de diagnóstico
+(
+echo @echo off
+echo REM Diagnóstico si la wallet no inicia
+echo cd /d "%%~dp0"
+echo echo Diagnosticando PlayerGold Wallet...
+echo if not exist "PlayerGold-Wallet.exe" ^(
+echo     echo ERROR: Ejecutable no encontrado
+echo     pause
+echo     exit /b 1
+echo ^)
+echo echo Ejecutando con debug...
+echo PlayerGold-Wallet.exe --enable-logging --disable-gpu-sandbox --no-sandbox
+echo echo.
+echo echo Si se cierra inmediatamente:
+echo echo 1. Instalar Visual C++ Redistributable 2015-2022 ^(x64^)
+echo echo 2. Ejecutar como administrador
+echo echo 3. Añadir excepción en antivirus
+echo pause
+) > "%COPY_DIR%\Diagnosticar-Problemas.bat"
 
 echo.
 echo 📊 Calculando tamaño...

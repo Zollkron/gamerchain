@@ -294,40 +294,91 @@ class MultiNodeNetworkNode:
         
         return False
     
+    async def send_keepalive(self):
+        """Send keepalive message to coordinator"""
+        try:
+            # Get system stats (simplified for now)
+            import psutil
+            
+            keepalive_data = {
+                "node_id": self.node_id,
+                "blockchain_height": len(self.blockchain.chain),
+                "connected_peers": self.p2p_network.get_peer_count(),
+                "cpu_usage": psutil.cpu_percent(interval=0.1),
+                "memory_usage": psutil.virtual_memory().percent,
+                "network_latency": 10.0,  # Placeholder
+                "ai_model_loaded": True,  # We're an AI node
+                "mining_active": not self.bootstrap_manager.waiting_for_pioneers,
+                "signature": "placeholder_signature"  # Placeholder for now
+            }
+            
+            response = requests.post(
+                f"{self.coordinator_url}/keepalive",
+                json=keepalive_data,
+                timeout=10,
+                headers=self.headers
+            )
+            
+            if response.status_code == 200:
+                logger.debug(f"✅ Keepalive sent successfully")
+                return True
+            else:
+                logger.warning(f"⚠️ Keepalive failed with status {response.status_code}")
+                if response.text:
+                    logger.warning(f"   Response: {response.text}")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Keepalive error: {e}")
+        
+        return False
+
     async def monitor_coordinator_nodes(self):
-        """Periodically check coordinator for new nodes"""
+        """Periodically check coordinator for new nodes and send keepalive"""
         check_interval = 15  # Start with 15 seconds
         max_interval = 60    # Max 60 seconds
+        keepalive_interval = 30  # Send keepalive every 30 seconds (more frequent)
+        last_keepalive = 0
         
-        while self.running and not self.bootstrap_manager.genesis_created:
+        while self.running:
             try:
-                logger.info(f"🔍 Checking coordinator for new peer nodes...")
-                new_nodes = self.get_coordinator_nodes()
+                current_time = time.time()
                 
-                if new_nodes:
-                    logger.info(f"🎯 Found {len(new_nodes)} potential peer nodes")
-                    # Add any new nodes we haven't seen
-                    for node_address in new_nodes:
-                        if not self.network_manager.has_bootstrap_node(node_address):
-                            logger.info(f"🆕 Adding new coordinator node: {node_address}")
-                            self.network_manager.add_bootstrap_node(node_address)
-                            
-                            # Try to connect immediately
-                            try:
-                                logger.info(f"🔗 Attempting connection to {node_address}...")
-                                await self.p2p_network.connect_to_peer(node_address)
-                                logger.info(f"✅ Connected to {node_address}")
-                            except Exception as e:
-                                logger.info(f"⚠️ Could not connect to {node_address}: {e}")
+                # Send keepalive if needed
+                if current_time - last_keepalive >= keepalive_interval:
+                    logger.debug(f"💓 Sending keepalive to coordinator...")
+                    if await self.send_keepalive():
+                        last_keepalive = current_time
+                
+                # Only check for new nodes if genesis not created
+                if not self.bootstrap_manager.genesis_created:
+                    logger.info(f"🔍 Checking coordinator for new peer nodes...")
+                    new_nodes = self.get_coordinator_nodes()
                     
-                    # Reset interval when we find nodes
-                    check_interval = 15
-                else:
-                    logger.info("📭 No new peer nodes found, continuing to monitor...")
-                    # Gradually increase interval
-                    check_interval = min(check_interval + 5, max_interval)
+                    if new_nodes:
+                        logger.info(f"🎯 Found {len(new_nodes)} potential peer nodes")
+                        # Add any new nodes we haven't seen
+                        for node_address in new_nodes:
+                            if not self.network_manager.has_bootstrap_node(node_address):
+                                logger.info(f"🆕 Adding new coordinator node: {node_address}")
+                                self.network_manager.add_bootstrap_node(node_address)
+                                
+                                # Try to connect immediately
+                                try:
+                                    logger.info(f"🔗 Attempting connection to {node_address}...")
+                                    await self.p2p_network.connect_to_peer(node_address)
+                                    logger.info(f"✅ Connected to {node_address}")
+                                except Exception as e:
+                                    logger.info(f"⚠️ Could not connect to {node_address}: {e}")
+                        
+                        # Reset interval when we find nodes
+                        check_interval = 15
+                    else:
+                        logger.info("📭 No new peer nodes found, continuing to monitor...")
+                        # Gradually increase interval
+                        check_interval = min(check_interval + 5, max_interval)
+                    
+                    logger.info(f"⏰ Next coordinator check in {check_interval} seconds...")
                 
-                logger.info(f"⏰ Next coordinator check in {check_interval} seconds...")
                 await asyncio.sleep(check_interval)
                 
             except Exception as e:
@@ -493,6 +544,10 @@ class MultiNodeNetworkNode:
             logger.info("🔍 Phase 1: Autodiscovery and Registration")
             if self.autodiscover_and_register():
                 logger.info("✅ Autodiscovery completed successfully")
+                
+                # Send immediate keepalive to ensure we're active
+                logger.info("💓 Sending immediate keepalive to ensure node is active...")
+                await self.send_keepalive()
                 
                 # Step 2: Get peer nodes from coordinator
                 logger.info("🗺️ Phase 2: Peer Discovery")

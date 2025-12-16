@@ -67,7 +67,7 @@ class PeerDiscoveryManager extends EventEmitter {
       retryDelay: 1000,
       
       // Testnet configuration
-      testnetPorts: [8000, 8001, 8002, 8080, 9000],
+      testnetPorts: [8000, 8001, 8002, 8080, 9000, 18080, 19080],
       localIpRanges: [
         '192.168.0.0/16',
         '10.0.0.0/8', 
@@ -211,12 +211,24 @@ class PeerDiscoveryManager extends EventEmitter {
   generateLocalNetworkTargets() {
     const targets = [];
     
-    // Common local network ranges
+    // Priority targets - localhost first for faster discovery
+    const priorityTargets = [
+      '127.0.0.1',
+      '127.0.0.2',
+      '127.0.0.3',
+      '127.0.0.4',
+      '127.0.0.5',
+      'localhost'
+    ];
+    
+    // Add priority targets first
+    targets.push(...priorityTargets);
+    
+    // Common local network ranges (reduced for faster scanning)
     const ranges = [
-      { base: '192.168.1', start: 1, end: 254 },
-      { base: '192.168.0', start: 1, end: 254 },
-      { base: '10.0.0', start: 1, end: 254 },
-      { base: '127.0.0', start: 1, end: 10 } // localhost range
+      { base: '192.168.1', start: 1, end: 50 }, // Reduced range
+      { base: '192.168.0', start: 1, end: 50 }, // Reduced range
+      { base: '10.0.0', start: 1, end: 20 },    // Reduced range
     ];
     
     for (const range of ranges) {

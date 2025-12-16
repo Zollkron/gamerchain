@@ -148,6 +148,9 @@ class BootstrapManager:
         # Start monitoring for pioneer nodes
         asyncio.create_task(self._monitor_pioneer_nodes())
         
+        # Start broadcasting our AI node status
+        asyncio.create_task(self._broadcast_ai_node_status())
+        
         logger.info("✅ Bootstrap Manager started - waiting for pioneer nodes")
     
     async def _handle_peer_discovery(self, message):
@@ -237,6 +240,47 @@ class BootstrapManager:
         
         except Exception as e:
             logger.error(f"Error handling AI node discovery: {e}")
+    
+    async def _broadcast_ai_node_status(self):
+        """Broadcast our AI node status to all connected peers"""
+        while self.waiting_for_pioneers and not self.genesis_created:
+            try:
+                # Get all connected peers
+                connected_peers = self.p2p_network.get_peer_list()
+                
+                if connected_peers:
+                    logger.info(f"📡 Broadcasting AI node status to {len(connected_peers)} peers")
+                    
+                    # Create AI node discovery message
+                    ai_discovery_payload = {
+                        'node_id': self.p2p_network.node_id,
+                        'is_ai_node': True,
+                        'ai_model_hash': f"model_{self.p2p_network.node_id}",
+                        'validator_address': f"PGval_{self.p2p_network.node_id}",
+                        'user_reward_address': f"PGuser_{self.p2p_network.node_id}",
+                        'timestamp': time.time()
+                    }
+                    
+                    # Send to all connected peers
+                    for peer in connected_peers:
+                        try:
+                            await self.p2p_network.send_message_to_peer(
+                                peer.peer_id,
+                                MessageType.AI_NODE_DISCOVERY,
+                                ai_discovery_payload
+                            )
+                            logger.debug(f"📤 Sent AI discovery to {peer.peer_id}")
+                        except Exception as e:
+                            logger.debug(f"Failed to send AI discovery to {peer.peer_id}: {e}")
+                else:
+                    logger.debug("No connected peers to broadcast AI status to")
+                
+                # Wait before next broadcast
+                await asyncio.sleep(10)  # Broadcast every 10 seconds
+                
+            except Exception as e:
+                logger.error(f"Error broadcasting AI node status: {e}")
+                await asyncio.sleep(30)
     
     async def _monitor_pioneer_nodes(self):
         """Monitor pioneer nodes and trigger genesis creation"""
