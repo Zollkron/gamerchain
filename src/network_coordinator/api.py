@@ -392,6 +392,60 @@ async def get_node_stats(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Stats generation failed: {str(e)}")
 
 
+@app.get("/api/v1/nodes/list")
+async def get_nodes_list(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get simple list of active nodes for gamers (no encryption)"""
+    try:
+        # Validate User-Agent
+        if not validate_user_agent(request.headers.get("user-agent", "")):
+            raise HTTPException(status_code=403, detail="Invalid User-Agent")
+        
+        logger.info("🎮 GAMERS NODE LIST REQUEST")
+        
+        # Get active nodes within last 5 minutes
+        cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+        
+        active_nodes = db.query(NetworkNode).filter(
+            and_(
+                NetworkNode.status == NodeStatus.ACTIVE,
+                NetworkNode.last_seen >= cutoff_time
+            )
+        ).all()
+        
+        logger.info(f"🎯 Found {len(active_nodes)} active nodes for gamers")
+        
+        # Convert to simple dict format (no encryption)
+        nodes_data = []
+        for node in active_nodes:
+            nodes_data.append({
+                "node_id": node.node_id,
+                "public_ip": node.public_ip,
+                "port": node.port,
+                "status": node.status.value,
+                "is_genesis": node.is_genesis,
+                "node_type": node.node_type.value,
+                "last_seen": node.last_seen.isoformat(),
+                "wallet_address": getattr(node, 'wallet_address', None)
+            })
+        
+        return {
+            "status": "success",
+            "message": "Active nodes list for gamers",
+            "active_nodes": nodes_data,
+            "total_count": len(nodes_data),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Gamers node list error: {e}")
+        raise HTTPException(status_code=500, detail=f"Node list generation failed: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
