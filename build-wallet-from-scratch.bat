@@ -62,8 +62,9 @@ if errorlevel 1 (
     pause
     exit /b 1
 ) else (
-    for /f "tokens=*" %%i in ('node --version 2^>nul') do echo ✅ Node.js: %%i
+    echo ✅ Node.js: Detectado correctamente
     echo [%DATE% %TIME%] Node.js detectado correctamente >> %LOGFILE%
+    node --version >> %LOGFILE% 2>&1
 )
 
 REM Verificar npm
@@ -77,16 +78,32 @@ if errorlevel 1 (
     pause
     exit /b 1
 ) else (
-    for /f "tokens=*" %%i in ('npm --version 2^>nul') do echo ✅ npm: %%i
+    echo ✅ npm: Detectado correctamente
     echo [%DATE% %TIME%] npm detectado correctamente >> %LOGFILE%
+    npm --version >> %LOGFILE% 2>&1
 )
 
 echo ✅ Requisitos del sistema verificados
+echo [%DATE% %TIME%] Requisitos del sistema verificados >> %LOGFILE%
 
 REM Cambiar al directorio de la wallet
+echo.
+echo 📂 Cambiando al directorio wallet...
 echo [%DATE% %TIME%] Cambiando al directorio wallet... >> %LOGFILE%
 cd wallet
 echo [%DATE% %TIME%] Directorio actual: %CD% >> %LOGFILE%
+
+REM Verificar que el directorio wallet existe y tiene contenido
+if not exist "package.json" (
+    echo ❌ ERROR: No se encuentra package.json en el directorio wallet
+    echo    Directorio actual: %CD%
+    echo [%DATE% %TIME%] ERROR: package.json no encontrado en directorio wallet >> %LOGFILE%
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
+    pause
+    exit /b 1
+)
+echo ✅ Directorio wallet verificado
 
 echo.
 echo 🧹 Limpiando builds anteriores...
