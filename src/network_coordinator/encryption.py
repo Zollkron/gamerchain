@@ -22,9 +22,50 @@ class NetworkEncryption:
     def __init__(self, master_key: bytes = None):
         """Initialize with master key for encryption"""
         if master_key is None:
-            # Generate a random master key (in production, this should be from secure storage)
-            master_key = os.urandom(32)
+            # Try to load master key from AES certificate
+            master_key = self.load_master_key_from_certificate()
+            if master_key is None:
+                # Fallback: Generate a random master key (deprecated)
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("AES certificate not found, generating random key (DEPRECATED)")
+                logger.warning("Run setup_coordinator_aes_certificate.py to create permanent certificate")
+                master_key = os.urandom(32)
         self.master_key = master_key
+    
+    def load_master_key_from_certificate(self) -> bytes:
+        """Load master key from AES certificate"""
+        try:
+            # Try multiple possible certificate locations
+            certificate_paths = [
+                "/opt/playergold/data/.AES_certificate/master_key.bin",
+                "./data/.AES_certificate/master_key.bin",
+                "./.AES_certificate/master_key.bin"
+            ]
+            
+            for cert_path in certificate_paths:
+                if os.path.exists(cert_path):
+                    with open(cert_path, 'rb') as f:
+                        master_key = f.read()
+                    
+                    # Verify key is valid (32 bytes for AES-256)
+                    if len(master_key) == 32:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.info(f"✅ Loaded AES certificate from: {cert_path}")
+                        return master_key
+                    else:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Invalid certificate key length: {len(master_key)} bytes")
+            
+            return None
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error loading AES certificate: {e}")
+            return None
     
     def generate_salt(self) -> bytes:
         """Generate a unique salt for encryption"""

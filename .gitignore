@@ -266,6 +266,12 @@ data/*_keys.json
 *.key 
 *.p12 
 *.pfx 
+
+# AES Certificates (NEVER COMMIT - CONTAINS CRYPTOGRAPHIC KEYS)
+.AES_certificate/
+**/.AES_certificate/
+*.AES_certificate
+certificate_download/
  
 # Security: Block IP addresses 
 *public*.bat 
