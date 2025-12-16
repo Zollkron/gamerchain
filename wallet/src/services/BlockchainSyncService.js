@@ -170,13 +170,28 @@ class BlockchainSyncService extends EventEmitter {
   }
 
   /**
-   * Start P2P network service
+   * Start P2P network service (Coordinator-only mode)
    */
   async startP2PService() {
     return new Promise((resolve, reject) => {
-      this.emit('status', { type: 'info', message: 'Verificando servicio P2P...' });
+      this.emit('status', { type: 'info', message: 'Iniciando modo coordinador...' });
       
       try {
+        // TEMPORARY: Use coordinator-only mode instead of direct P2P
+        console.log('🌐 Running in coordinator-only mode - P2P service disabled');
+        console.log('📡 Nodes will communicate through the Network Coordinator');
+        
+        // Mark as connected for coordinator-only mode
+        this.syncStatus.isConnected = true;
+        this.syncStatus.peers = 1; // This node
+        this.updateSyncStatus();
+        this.emit('status', { type: 'success', message: 'Modo coordinador activado' });
+        
+        resolve();
+        return;
+        
+        // ORIGINAL P2P CODE (DISABLED FOR NOW)
+        /*
         // First check if P2P service is already running
         const net = require('net');
         const client = new net.Socket();
@@ -198,15 +213,30 @@ class BlockchainSyncService extends EventEmitter {
           client.destroy();
           this.emit('status', { type: 'info', message: 'Iniciando servicio P2P...' });
           
-          // Get the project root directory (from wallet/src/services/ go up to project root)
-          const projectRoot = path.resolve(__dirname, '../../../');
-          const scriptPath = path.join(projectRoot, 'scripts', 'start_testnet_node.py');
+          // Get the correct script path for Electron build
+          let scriptPath;
+          if (process.env.NODE_ENV === 'production' || __dirname.includes('app.asar')) {
+            // In production/Electron build, scripts are in resources/scripts/
+            const resourcesPath = process.resourcesPath || path.resolve(__dirname, '../../../resources');
+            scriptPath = path.join(resourcesPath, 'scripts', 'start_testnet_node.py');
+          } else {
+            // In development, scripts are in project root
+            const projectRoot = path.resolve(__dirname, '../../../');
+            scriptPath = path.join(projectRoot, 'scripts', 'start_testnet_node.py');
+          }
           
           // Start P2P node process
+          const workingDir = process.env.NODE_ENV === 'production' || __dirname.includes('app.asar') 
+            ? process.resourcesPath || path.resolve(__dirname, '../../../resources')
+            : path.resolve(__dirname, '../../../');
+            
+          console.log(`🔍 Starting P2P node with script: ${scriptPath}`);
+          console.log(`🔍 Working directory: ${workingDir}`);
+          
           this.p2pProcess = spawn('python', [scriptPath], {
-            cwd: projectRoot,
+            cwd: workingDir,
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: { ...process.env, PYTHONPATH: projectRoot }
+            env: { ...process.env, PYTHONPATH: workingDir }
           });
 
           let startupComplete = false;
@@ -279,6 +309,7 @@ class BlockchainSyncService extends EventEmitter {
           client.destroy();
           reject(new Error('Timeout checking P2P service'));
         });
+        */
 
       } catch (error) {
         reject(error);
