@@ -3,9 +3,14 @@ REM PlayerGold Wallet - Build Complete desde Cero
 REM Este script genera la wallet completa desde cero en cualquier equipo
 REM Actualizado para usar la estructura dist/ moderna
 
+REM Cambiar al directorio del script (soluciona problema de ejecución como admin)
+cd /d "%~dp0"
+
 echo ========================================
 echo PlayerGold Wallet - Build desde Cero
 echo ========================================
+echo.
+echo 📁 Directorio de trabajo: %CD%
 echo.
 echo Este script construye la wallet completa desde cero:
 echo • Instala dependencias
@@ -17,7 +22,14 @@ echo.
 REM Verificar que estamos en el directorio correcto
 if not exist "wallet\package.json" (
     echo ❌ ERROR: No se encuentra wallet\package.json
-    echo    Ejecuta este script desde la raíz del proyecto PlayerGold
+    echo    Directorio actual: %CD%
+    echo    Este script debe ejecutarse desde la raíz del proyecto PlayerGold
+    echo    Asegúrate de que el archivo wallet\package.json existe
+    echo.
+    echo 💡 Solución:
+    echo    1. Navega al directorio correcto del proyecto
+    echo    2. Ejecuta el script desde ahí
+    echo    3. O arrastra el script al directorio correcto
     pause
     exit /b 1
 )

@@ -2,9 +2,14 @@
 REM PlayerGold Wallet - Copia a Otro Dispositivo
 REM Este script prepara la wallet para copiar a otro equipo
 
+REM Cambiar al directorio del script (soluciona problema de ejecución como admin)
+cd /d "%~dp0"
+
 echo ========================================
 echo PlayerGold Wallet - Copia a Dispositivo
 echo ========================================
+echo.
+echo 📁 Directorio de trabajo: %CD%
 echo.
 echo Este script prepara los archivos necesarios para
 echo copiar la wallet a otro equipo (portátil, etc.)
@@ -13,7 +18,12 @@ echo.
 REM Verificar que existe la wallet construida
 if not exist "wallet\dist\windows\win-unpacked\PlayerGold-Wallet.exe" (
     echo ❌ ERROR: Wallet no encontrada
-    echo    Primero ejecuta: build-wallet-from-scratch.bat
+    echo    Directorio actual: %CD%
+    echo    Archivo esperado: wallet\dist\windows\win-unpacked\PlayerGold-Wallet.exe
+    echo.
+    echo 💡 Solución:
+    echo    1. Primero ejecuta: build-wallet-from-scratch.bat
+    echo    2. Asegúrate de estar en el directorio correcto del proyecto
     pause
     exit /b 1
 )
