@@ -69,28 +69,13 @@ if errorlevel 1 (
 
 REM Verificar npm
 echo Verificando npm...
-echo [%DATE% %TIME%] Intentando ejecutar npm --version... >> %LOGFILE%
+echo [%DATE% %TIME%] Verificando npm... >> %LOGFILE%
 
-REM Intentar npm --version y capturar el código de salida
-npm --version >nul 2>&1
-set NPM_EXIT_CODE=%errorlevel%
-echo [%DATE% %TIME%] npm --version retornó código: %NPM_EXIT_CODE% >> %LOGFILE%
-
-if %NPM_EXIT_CODE% neq 0 (
-    echo ❌ ERROR: npm no está disponible (código: %NPM_EXIT_CODE%)
-    echo [%DATE% %TIME%] ERROR: npm falló con código %NPM_EXIT_CODE% >> %LOGFILE%
-    
-    REM Intentar diagnóstico adicional
-    echo [%DATE% %TIME%] Diagnóstico adicional de npm: >> %LOGFILE%
-    where npm >> %LOGFILE% 2>&1
-    echo [%DATE% %TIME%] PATH actual: %PATH% >> %LOGFILE%
-    
-    echo.
-    echo 💡 Posibles soluciones:
-    echo    1. Reinstalar Node.js desde https://nodejs.org/
-    echo    2. Reiniciar el terminal/cmd
-    echo    3. Verificar que npm esté en el PATH
-    echo    4. Ejecutar: npm --version manualmente
+REM Verificar npm de forma simple
+npm --version >> %LOGFILE% 2>&1
+if errorlevel 1 (
+    echo ❌ ERROR: npm no está disponible
+    echo [%DATE% %TIME%] ERROR: npm no encontrado >> %LOGFILE%
     echo.
     echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
@@ -98,11 +83,13 @@ if %NPM_EXIT_CODE% neq 0 (
 ) else (
     echo ✅ npm: Detectado correctamente
     echo [%DATE% %TIME%] npm detectado correctamente >> %LOGFILE%
-    npm --version >> %LOGFILE% 2>&1
 )
 
 echo ✅ Requisitos del sistema verificados
 echo [%DATE% %TIME%] Requisitos del sistema verificados >> %LOGFILE%
+
+REM Pequeña pausa para asegurar que todo se procese correctamente
+timeout /t 1 /nobreak >nul
 
 REM Cambiar al directorio de la wallet
 echo.
