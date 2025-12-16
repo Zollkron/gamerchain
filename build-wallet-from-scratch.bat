@@ -3,14 +3,21 @@ REM PlayerGold Wallet - Build Complete desde Cero
 REM Este script genera la wallet completa desde cero en cualquier equipo
 REM Actualizado para usar la estructura dist/ moderna
 
+REM Habilitar logging detallado para diagnóstico
+set LOGFILE=wallet-build-log.txt
+echo [%DATE% %TIME%] Iniciando build de wallet > %LOGFILE%
+
 REM Cambiar al directorio del script (soluciona problema de ejecución como admin)
+echo [%DATE% %TIME%] Directorio inicial: %CD% >> %LOGFILE%
 cd /d "%~dp0"
+echo [%DATE% %TIME%] Directorio después de cd: %CD% >> %LOGFILE%
 
 echo ========================================
 echo PlayerGold Wallet - Build desde Cero
 echo ========================================
 echo.
 echo 📁 Directorio de trabajo: %CD%
+echo 📝 Log detallado: %LOGFILE%
 echo.
 echo Este script construye la wallet completa desde cero:
 echo • Instala dependencias
@@ -20,73 +27,119 @@ echo • Genera ejecutables listos para usar
 echo.
 
 REM Verificar que estamos en el directorio correcto
+echo [%DATE% %TIME%] Verificando estructura del proyecto... >> %LOGFILE%
+dir >> %LOGFILE% 2>&1
+
 if not exist "wallet\package.json" (
     echo ❌ ERROR: No se encuentra wallet\package.json
     echo    Directorio actual: %CD%
     echo    Este script debe ejecutarse desde la raíz del proyecto PlayerGold
     echo    Asegúrate de que el archivo wallet\package.json existe
     echo.
+    echo [%DATE% %TIME%] ERROR: wallet\package.json no encontrado en %CD% >> %LOGFILE%
     echo 💡 Solución:
     echo    1. Navega al directorio correcto del proyecto
     echo    2. Ejecuta el script desde ahí
     echo    3. O arrastra el script al directorio correcto
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
     exit /b 1
 )
 
 echo 🔍 Verificando requisitos del sistema...
+echo [%DATE% %TIME%] Verificando Node.js y npm... >> %LOGFILE%
 
 REM Verificar Node.js
-node --version >nul 2>&1
+echo Verificando Node.js...
+node --version >> %LOGFILE% 2>&1
 if errorlevel 1 (
     echo ❌ ERROR: Node.js no está instalado
     echo    Descarga e instala Node.js desde: https://nodejs.org/
+    echo [%DATE% %TIME%] ERROR: Node.js no encontrado >> %LOGFILE%
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
     exit /b 1
+) else (
+    for /f "tokens=*" %%i in ('node --version 2^>nul') do echo ✅ Node.js: %%i
+    echo [%DATE% %TIME%] Node.js detectado correctamente >> %LOGFILE%
 )
 
 REM Verificar npm
-npm --version >nul 2>&1
+echo Verificando npm...
+npm --version >> %LOGFILE% 2>&1
 if errorlevel 1 (
     echo ❌ ERROR: npm no está disponible
+    echo [%DATE% %TIME%] ERROR: npm no encontrado >> %LOGFILE%
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
     exit /b 1
+) else (
+    for /f "tokens=*" %%i in ('npm --version 2^>nul') do echo ✅ npm: %%i
+    echo [%DATE% %TIME%] npm detectado correctamente >> %LOGFILE%
 )
 
-echo ✅ Node.js y npm detectados correctamente
+echo ✅ Requisitos del sistema verificados
 
 REM Cambiar al directorio de la wallet
+echo [%DATE% %TIME%] Cambiando al directorio wallet... >> %LOGFILE%
 cd wallet
+echo [%DATE% %TIME%] Directorio actual: %CD% >> %LOGFILE%
 
 echo.
 echo 🧹 Limpiando builds anteriores...
-if exist "build" rmdir /s /q "build"
-if exist "dist" rmdir /s /q "dist"
-if exist "node_modules\.cache" rmdir /s /q "node_modules\.cache"
+echo [%DATE% %TIME%] Limpiando directorios anteriores... >> %LOGFILE%
+if exist "build" (
+    echo    • Eliminando build/
+    rmdir /s /q "build" >> %LOGFILE% 2>&1
+)
+if exist "dist" (
+    echo    • Eliminando dist/
+    rmdir /s /q "dist" >> %LOGFILE% 2>&1
+)
+if exist "node_modules\.cache" (
+    echo    • Eliminando cache de node_modules
+    rmdir /s /q "node_modules\.cache" >> %LOGFILE% 2>&1
+)
 
 echo.
 echo 📦 Instalando dependencias de npm...
 echo    Esto puede tomar varios minutos...
-call npm install
+echo    💡 Si se cuelga aquí, presiona Ctrl+C y ejecuta: npm install --force
+echo.
+echo [%DATE% %TIME%] Iniciando npm install... >> %LOGFILE%
+call npm install >> %LOGFILE% 2>&1
 if errorlevel 1 (
     echo ❌ ERROR: Falló la instalación de dependencias
     echo    Intenta ejecutar: npm install --force
+    echo [%DATE% %TIME%] ERROR: npm install falló con código %errorlevel% >> %LOGFILE%
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
     exit /b 1
 )
+echo [%DATE% %TIME%] npm install completado exitosamente >> %LOGFILE%
 
 echo.
 echo ✅ Dependencias instaladas correctamente
 
 echo.
 echo 🔧 Construyendo aplicación React...
-call npm run build
+echo    Esto puede tomar varios minutos...
+echo [%DATE% %TIME%] Iniciando npm run build... >> %LOGFILE%
+call npm run build >> %LOGFILE% 2>&1
 if errorlevel 1 (
     echo ❌ ERROR: Falló la construcción de React
     echo    Revisa los errores anteriores
+    echo [%DATE% %TIME%] ERROR: npm run build falló con código %errorlevel% >> %LOGFILE%
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
     exit /b 1
 )
+echo [%DATE% %TIME%] npm run build completado exitosamente >> %LOGFILE%
 
 echo.
 echo ✅ Aplicación React construida correctamente
@@ -94,22 +147,33 @@ echo ✅ Aplicación React construida correctamente
 echo.
 echo 📱 Empaquetando con Electron Builder...
 echo    Esto puede tomar varios minutos...
-call npm run electron-build
+echo    💡 Si se cuelga aquí, es normal - Electron Builder es lento
+echo.
+echo [%DATE% %TIME%] Iniciando npm run electron-build... >> %LOGFILE%
+call npm run electron-build >> %LOGFILE% 2>&1
 if errorlevel 1 (
     echo ❌ ERROR: Falló el empaquetado con Electron
     echo    Revisa los errores anteriores
+    echo [%DATE% %TIME%] ERROR: npm run electron-build falló con código %errorlevel% >> %LOGFILE%
+    echo.
+    echo 📝 Revisa el archivo %LOGFILE% para más detalles
     pause
     exit /b 1
 )
+echo [%DATE% %TIME%] npm run electron-build completado exitosamente >> %LOGFILE%
 
 echo.
 echo ✅ Empaquetado completado exitosamente
 
 REM Volver al directorio raíz
+echo [%DATE% %TIME%] Volviendo al directorio raíz... >> %LOGFILE%
 cd ..
+echo [%DATE% %TIME%] Directorio actual: %CD% >> %LOGFILE%
 
 echo.
 echo 🔍 Verificando archivos generados...
+echo [%DATE% %TIME%] Verificando archivos generados... >> %LOGFILE%
+dir "wallet\dist" /s >> %LOGFILE% 2>&1
 
 REM Verificar que se generaron los archivos
 if exist "wallet\dist\windows\win-unpacked\PlayerGold-Wallet.exe" (
@@ -182,5 +246,15 @@ echo    • Interfaz moderna y fácil de usar
 echo.
 
 echo ✅ ¡Wallet lista para usar!
+echo.
+echo [%DATE% %TIME%] Build completado exitosamente >> %LOGFILE%
+echo 📝 Log completo guardado en: %LOGFILE%
+echo.
+echo 🔧 DIAGNÓSTICO DE PROBLEMAS:
+echo    Si el script se cerró inmediatamente:
+echo    1. Revisa %LOGFILE% para ver dónde falló
+echo    2. Asegúrate de tener Node.js instalado
+echo    3. Ejecuta como administrador si es necesario
+echo    4. Verifica que estás en el directorio correcto
 echo.
 pause

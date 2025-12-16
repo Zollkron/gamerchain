@@ -2,31 +2,44 @@
 REM PlayerGold Wallet - Copia a Otro Dispositivo
 REM Este script prepara la wallet para copiar a otro equipo
 
+REM Habilitar logging para diagnóstico
+set COPYLOG=wallet-copy-log.txt
+echo [%DATE% %TIME%] Iniciando copia de wallet > %COPYLOG%
+
 REM Cambiar al directorio del script (soluciona problema de ejecución como admin)
+echo [%DATE% %TIME%] Directorio inicial: %CD% >> %COPYLOG%
 cd /d "%~dp0"
+echo [%DATE% %TIME%] Directorio después de cd: %CD% >> %COPYLOG%
 
 echo ========================================
 echo PlayerGold Wallet - Copia a Dispositivo
 echo ========================================
 echo.
 echo 📁 Directorio de trabajo: %CD%
+echo 📝 Log detallado: %COPYLOG%
 echo.
 echo Este script prepara los archivos necesarios para
 echo copiar la wallet a otro equipo (portátil, etc.)
 echo.
 
 REM Verificar que existe la wallet construida
+echo [%DATE% %TIME%] Verificando wallet construida... >> %COPYLOG%
 if not exist "wallet\dist\windows\win-unpacked\PlayerGold-Wallet.exe" (
     echo ❌ ERROR: Wallet no encontrada
     echo    Directorio actual: %CD%
     echo    Archivo esperado: wallet\dist\windows\win-unpacked\PlayerGold-Wallet.exe
     echo.
+    echo [%DATE% %TIME%] ERROR: Wallet ejecutable no encontrado >> %COPYLOG%
+    dir "wallet\dist" /s >> %COPYLOG% 2>&1
     echo 💡 Solución:
     echo    1. Primero ejecuta: build-wallet-from-scratch.bat
     echo    2. Asegúrate de estar en el directorio correcto del proyecto
+    echo    3. Revisa %COPYLOG% para más detalles
+    echo.
     pause
     exit /b 1
 )
+echo [%DATE% %TIME%] Wallet ejecutable encontrado correctamente >> %COPYLOG%
 
 echo 🔍 Verificando archivos de la wallet...
 
@@ -40,12 +53,17 @@ echo 📦 Preparando archivos para copia...
 
 REM Copiar la wallet ejecutable completa
 echo    • Copiando ejecutable y dependencias...
-xcopy "wallet\dist\windows\win-unpacked\*" "%COPY_DIR%\" /E /I /H /Y >nul
+echo [%DATE% %TIME%] Iniciando copia de archivos... >> %COPYLOG%
+xcopy "wallet\dist\windows\win-unpacked\*" "%COPY_DIR%\" /E /I /H /Y >> %COPYLOG% 2>&1
 if errorlevel 1 (
     echo ❌ ERROR: No se pudo copiar la wallet
+    echo [%DATE% %TIME%] ERROR: xcopy falló con código %errorlevel% >> %COPYLOG%
+    echo.
+    echo 📝 Revisa %COPYLOG% para más detalles
     pause
     exit /b 1
 )
+echo [%DATE% %TIME%] Copia de archivos completada >> %COPYLOG%
 
 REM Copiar certificado AES si existe
 if exist "wallet\.AES_certificate\" (
@@ -154,5 +172,8 @@ echo    • Certificado AES incluido (si estaba disponible)
 echo.
 
 echo ✅ ¡Lista para copiar a otro equipo!
+echo.
+echo [%DATE% %TIME%] Copia preparada exitosamente >> %COPYLOG%
+echo 📝 Log completo guardado en: %COPYLOG%
 echo.
 pause
