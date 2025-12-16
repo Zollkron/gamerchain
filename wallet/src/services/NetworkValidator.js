@@ -112,23 +112,22 @@ class NetworkValidator {
             console.log('🌐 Attempting to connect to coordinator for network map...');
             
             // Try to get network map directly first
-            const networkMap = await this.coordinatorClient.getNetworkMap();
+            const rawNetworkMap = await this.coordinatorClient.getNetworkMap();
             
-            if (networkMap && networkMap.active_nodes) {
+            if (rawNetworkMap && rawNetworkMap.active_nodes) {
                 console.log('✅ Successfully received network map from coordinator');
-                const map = networkMap;
                 
                 // Convert to internal format (no validation needed - coordinator is trusted)
                 const networkMap = {
                     encrypted_data: 'coordinator_data',
                     salt: 'coordinator_salt',
-                    timestamp: map.timestamp,
+                    timestamp: rawNetworkMap.timestamp,
                     signature: 'coordinator_verified',
                     version: 1,
-                    total_nodes: map.total_nodes || map.active_nodes,
-                    active_nodes: map.active_nodes,
-                    genesis_nodes: map.genesis_nodes || 0,
-                    nodes: map.nodes || [],
+                    total_nodes: rawNetworkMap.total_nodes || rawNetworkMap.active_nodes,
+                    active_nodes: rawNetworkMap.active_nodes,
+                    genesis_nodes: rawNetworkMap.genesis_nodes || 0,
+                    nodes: rawNetworkMap.nodes || [],
                     coordinator_verified: true,
                     development_mode: false
                 };
@@ -143,21 +142,20 @@ class NetworkValidator {
             
             if (registered) {
                 console.log('✅ Registered with coordinator, retrying network map...');
-                const retryMap = await this.coordinatorClient.getNetworkMap();
+                const retryRawMap = await this.coordinatorClient.getNetworkMap();
                 
-                if (retryMap && retryMap.active_nodes) {
-                    const map = retryMap;
+                if (retryRawMap && retryRawMap.active_nodes) {
                     
                     const networkMap = {
                         encrypted_data: 'coordinator_data',
                         salt: 'coordinator_salt',
-                        timestamp: map.timestamp,
+                        timestamp: retryRawMap.timestamp,
                         signature: 'coordinator_verified',
                         version: 1,
-                        total_nodes: map.total_nodes || map.active_nodes,
-                        active_nodes: map.active_nodes,
-                        genesis_nodes: map.genesis_nodes || 0,
-                        nodes: map.nodes || [],
+                        total_nodes: retryRawMap.total_nodes || retryRawMap.active_nodes,
+                        active_nodes: retryRawMap.active_nodes,
+                        genesis_nodes: retryRawMap.genesis_nodes || 0,
+                        nodes: retryRawMap.nodes || [],
                         coordinator_verified: true,
                         development_mode: false
                     };
@@ -480,14 +478,15 @@ class NetworkValidator {
             
             const freshMap = await this.downloadCanonicalNetworkMap();
             
-            if (freshMap && this.isNetworkMapValid(freshMap)) {
+            if (freshMap) {
+                console.log('✅ Successfully downloaded fresh network map');
                 this.saveNetworkMap(freshMap);
                 this.canonicalNetworkMap = freshMap;
                 
-                console.log('✅ Network map refreshed successfully');
+                console.log(`📊 Network map refreshed: ${freshMap.active_nodes} active nodes, ${freshMap.genesis_nodes || 0} genesis nodes`);
                 return true;
             } else {
-                console.warn('⚠️ Failed to refresh network map, keeping existing one');
+                console.warn('⚠️ Failed to download fresh network map from coordinator');
                 return false;
             }
             
